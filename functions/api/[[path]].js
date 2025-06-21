@@ -431,7 +431,8 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({ success: true }), { headers });
         }
 
-        // 统一的CRUD处理器
+        // 在 functions/api/[[path]].js 文件中，找到并替换 handleCrud 函数
+
         const handleCrud = async (kvKey, request, id) => {
             let data = await env.KV.get(kvKey);
             let items = data ? JSON.parse(data) : [];
@@ -439,6 +440,7 @@ export async function onRequest(context) {
             switch (request.method) {
                 case 'GET':
                     return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
+
                 case 'POST': {
                     const newItems = await request.json();
                     if (!Array.isArray(newItems)) {
@@ -447,11 +449,31 @@ export async function onRequest(context) {
                     await env.KV.put(kvKey, JSON.stringify(newItems));
                     return new Response(JSON.stringify({ success: true, count: newItems.length }));
                 }
+
+                // --- 【新增】PUT方法用于更新单个项目 ---
+                case 'PUT': {
+                    if (!id) return new Response('ID is required for update', { status: 400 });
+
+                    const updatedItem = await request.json();
+                    const itemIndex = items.findIndex(item => item.id === id);
+
+                    if (itemIndex === -1) {
+                        return new Response('Item not found', { status: 404 });
+                    }
+
+                    // 用新数据替换旧数据，同时保留ID
+                    items[itemIndex] = { ...updatedItem, id: id };
+                    await env.KV.put(kvKey, JSON.stringify(items));
+
+                    return new Response(JSON.stringify(items[itemIndex]));
+                }
+
                 case 'DELETE':
                     if (!id) return new Response('ID required', { status: 400 });
                     const remainingItems = items.filter(item => item.id !== id);
                     await env.KV.put(kvKey, JSON.stringify(remainingItems));
-                    return new Response(null, { status: 204 }); // 204 No Content
+                    return new Response(null, { status: 204 });
+
                 default:
                     return new Response('Method Not Allowed', { status: 405 });
             }
