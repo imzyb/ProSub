@@ -290,7 +290,7 @@ export async function onRequest(context) {
     if (url.pathname.startsWith('/api/')) {
         const pathParts = context.params.path;
         const resource = pathParts[0];
-        const id = pathParts[1]; // 获取ID
+        const id = pathParts[1];
 
         if (resource === 'login' && request.method === 'POST') {
             try {
@@ -349,53 +349,6 @@ export async function onRequest(context) {
         }
         if (resource === 'profiles') {
             return handleCrud(KV_KEY_PROFILES, request, id);
-        }
-
-       return new Response('API route not found', { status: 404 });
-    }
-
-        // 在 functions/api/[[path]].js 中找到并替换 handleCrud 函数
-
-        const handleCrud = async (kvKey, request, id) => {
-            let data = await env.KV.get(kvKey);
-            let items = data ? JSON.parse(data) : [];
-
-            switch (request.method) {
-                case 'GET':
-                    return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
-
-                case 'POST': {
-                    // 【修改】这里的逻辑现在是“完全替换”而不是“追加”
-                    const newItems = await request.json();
-                    if (!Array.isArray(newItems)) {
-                        return new Response('Request body must be an array.', { status: 400 });
-                    }
-                    await env.KV.put(kvKey, JSON.stringify(newItems));
-                    return new Response(JSON.stringify({ success: true, count: newItems.length }));
-                }
-
-                case 'DELETE':
-                    if (!id) return new Response('ID required', { status: 400 });
-                    const remainingItems = items.filter(item => item.id !== id);
-                    await env.KV.put(kvKey, JSON.stringify(remainingItems));
-                    return new Response(null, { status: 204 });
-
-                default:
-                    return new Response('Method Not Allowed', { status: 405 });
-            }
-        };
-
-        // 同时，需要修改onRequest中对handleCrud的调用方式
-        // 在 if (resource === 'nodes') { ... } 中，调用改为:
-        // return handleCrud(KV_KEY_NODES, request, id);
-        // 在 if (resource === 'profiles') { ... } 中，调用改为:
-        // return handleCrud(KV_KEY_PROFILES, request, id);
-
-        if (resource === 'nodes') {
-            return handleCrud(KV_KEY_NODES);
-        }
-        if (resource === 'profiles') {
-            return handleCrud(KV_KEY_PROFILES);
         }
 
         return new Response('API route not found', { status: 404 });
