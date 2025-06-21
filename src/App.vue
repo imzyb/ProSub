@@ -29,7 +29,7 @@ function handleLoginSuccess() {
   sessionState.value = 'loggedIn';
 }
 
-// 组件加载时，立即检查会话状态
+// 组件加载时，立即检查会D话状态
 onMounted(() => {
   checkSession();
 });
@@ -42,7 +42,7 @@ onMounted(() => {
     </div>
 
     <RouterView v-else-if="sessionState === 'loggedIn'" />
-    
+
     <LoginView v-else :on-login-success="handleLoginSuccess" />
   </div>
 </template>
