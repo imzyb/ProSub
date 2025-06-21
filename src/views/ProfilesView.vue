@@ -6,7 +6,6 @@ const nodes = ref([]);
 const profiles = ref([]);
 const isLoading = ref(true);
 
-// 将表单数据整合到一个响应式对象中，便于管理
 const formProfile = ref({
   id: null,
   name: '',
@@ -15,7 +14,6 @@ const formProfile = ref({
   nodeIds: [],
 });
 
-// 计算属性，判断当前是新增还是编辑模式
 const isEditing = computed(() => !!formProfile.value.id);
 
 // --- API 调用 ---
@@ -37,39 +35,38 @@ async function fetchData() {
   }
 }
 
+async function saveData(data) {
+  const resource = isEditing.value ? `profiles/${formProfile.value.id}` : 'profiles';
+  const method = isEditing.value ? 'PUT' : 'POST';
+  const body = isEditing.value ? data : [...profiles.value, data];
+
+  try {
+    const response = await fetch(`/api/${resource}`, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error('保存配置失败');
+    return true;
+  } catch (error) {
+    console.error('保存配置失败:', error);
+    alert('保存配置失败');
+    return false;
+  }
+}
+
 async function saveProfile() {
   if (!formProfile.value.name.trim() || formProfile.value.nodeIds.length === 0) {
     alert('配置名称不能为空，且至少要选择一个节点。');
     return;
   }
 
-  try {
-    let response;
-    if (isEditing.value) {
-      // 编辑模式: 使用 PUT 请求更新单个 profile
-      response = await fetch(`/api/profiles/${formProfile.value.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formProfile.value),
-      });
-    } else {
-      // 新增模式: 使用 POST 批量接口添加新 profile
-      const newProfile = { ...formProfile.value, id: crypto.randomUUID() };
-      response = await fetch('/api/profiles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify([...profiles.value, newProfile]),
-      });
-    }
-    
-    if (!response.ok) throw new Error('保存配置失败');
-
+  const profileData = isEditing.value ? formProfile.value : { ...formProfile.value, id: crypto.randomUUID() };
+  const success = await saveData(profileData);
+  
+  if (success) {
     resetForm();
     await fetchData();
-
-  } catch (error) {
-    console.error('保存配置失败:', error);
-    alert('保存配置失败');
   }
 }
 
@@ -78,7 +75,7 @@ async function deleteProfile(id) {
   try {
       const updatedProfiles = profiles.value.filter(p => p.id !== id);
       const response = await fetch('/api/profiles', {
-          method: 'POST',
+          method: 'POST', // 使用批量保存来处理删除
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedProfiles)
       });
@@ -91,23 +88,18 @@ async function deleteProfile(id) {
 
 // --- 表单与工具方法 ---
 function startEditProfile(profile) {
-  // 将选中的profile数据填充到表单中，进入编辑模式
   formProfile.value = { ...profile };
-  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  const formElement = document.getElementById('profile-form');
+  if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+  }
 }
 
 function resetForm() {
-  formProfile.value = {
-    id: null,
-    name: '',
-    outputFormat: 'Clash',
-    remoteConfig: '',
-    nodeIds: [],
-  };
+  formProfile.value = { id: null, name: '', outputFormat: 'Clash', remoteConfig: '', nodeIds: [] };
 }
 
 const getSubscriptionLink = (profileId) => `${window.location.origin}/subscribe/${profileId}`;
-
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => alert('链接已复制到剪贴板！'));
 }
@@ -123,9 +115,11 @@ onMounted(fetchData);
       <div v-if="isLoading">正在加载...</div>
       <ul v-else-if="profiles.length > 0" class="item-list">
         <li v-for="profile in profiles" :key="profile.id">
-          <div class="profile-info">
-            <strong>{{ profile.name }}</strong>
-            <span>格式: {{ profile.outputFormat }}</span>
+          <div class="profile-content">
+            <div class="profile-details">
+              <strong>{{ profile.name }}</strong>
+              <span>格式: {{ profile.outputFormat }}</span>
+            </div>
             <div class="link-wrapper">
               <input :value="getSubscriptionLink(profile.id)" readonly />
               <button @click="copyLink(getSubscriptionLink(profile.id))" class="btn-success">复制</button>
@@ -140,7 +134,7 @@ onMounted(fetchData);
       <div v-else class="empty-state">暂无输出配置。</div>
     </div>
 
-    <div class="card">
+    <div class="card" id="profile-form">
       <h2>{{ isEditing ? '编辑输出配置' : '创建新输出配置' }}</h2>
       <form @submit.prevent="saveProfile">
         <input v-model="formProfile.name" type="text" placeholder="配置名称 (例如: 家庭Clash)" required/>
@@ -169,11 +163,12 @@ onMounted(fetchData);
 </template>
 
 <style scoped>
-/* 通用样式 */
+/* ... 其他样式保持不变，主要修改 li 和相关样式 ... */
 .view-container { max-width: 1024px; margin: 0 auto; }
 .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
-.card-description { font-size: 0.9rem; color: #666; margin-top: -0.5rem; margin-bottom: 1.5rem; }
+/* ... h2, form, input, select, fieldset 等样式不变 ... */
 h2 { margin-top: 0; margin-bottom: 1rem; }
+.card-description { font-size: 0.9rem; color: #666; margin-top: -0.5rem; margin-bottom: 1.5rem; }
 form { display: flex; flex-direction: column; gap: 1rem; }
 input, select { padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
 .form-actions { display: flex; gap: 1rem; }
@@ -181,21 +176,45 @@ button { padding: 0.75rem 1rem; color: white; border: none; border-radius: 4px; 
 button:hover { opacity: 0.9; }
 button:disabled { background-color: #ccc; cursor: not-allowed; }
 button[type="submit"] { background-color: #007bff; }
-.item-list { list-style: none; padding: 0; }
-li { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
-li:last-child { border-bottom: none; }
-.profile-info { display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; }
-.link-wrapper { display: flex; margin-top: 0.5rem; }
-.link-wrapper input { flex-grow: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; background-color: #e9ecef; }
-.link-wrapper button { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-.btn-danger { background-color: #dc3545; }
-.btn-success { background-color: #28a745; }
-.btn-warning { background-color: #ffc107; color: #212529; }
-.btn-secondary { background-color: #6c757d; }
 .empty-state { text-align: center; padding: 2rem; color: #888; }
 fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 4px; margin-top: 0.5rem; }
 legend { padding: 0 0.5rem; font-weight: bold; }
 .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
 .checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
+
+/* 【布局修改】 */
+.item-list { list-style: none; padding: 0; }
+li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+li:last-child { border-bottom: none; }
+
+.profile-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.profile-details {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.profile-details strong { font-size: 1.1rem; }
+.profile-details span { font-size: 0.85rem; color: #666; background-color: #f0f0f0; padding: 0.2rem 0.5rem; border-radius: 4px;}
+
+.link-wrapper { display: flex; }
+.link-wrapper input { flex-grow: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; background-color: #e9ecef; border: 1px solid #ccc; padding: 0.5rem; font-family: monospace; font-size: 0.85rem;}
+.link-wrapper button { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+
+.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.btn-danger { background-color: #dc3545; }
+.btn-success { background-color: #28a745; }
+.btn-warning { background-color: #ffc107; color: #212529; }
+.btn-secondary { background-color: #6c757d; }
 </style>
