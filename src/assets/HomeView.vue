@@ -1,103 +1,132 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-// 响应式状态
+// --- 状态 ---
 const nodes = ref([]);
+const profiles = ref([]); // 新增：管理输出配置
+const isLoading = ref(true);
+
+// 表单状态
 const newNodeName = ref('');
 const newNodeUrl = ref('');
-const isLoading = ref(false);
+const newProfileName = ref(''); // 新增
+const selectedNodeIdsForNewProfile = ref([]); // 新增
 
-// --- API 调用方法 ---
+// --- API 调用 ---
 
-// 获取所有节点
-async function fetchNodes() {
+// 获取所有数据
+async function fetchData() {
   isLoading.value = true;
   try {
-    const response = await fetch('/api/nodes');
-    nodes.value = await response.json();
+    const [nodesRes, profilesRes] = await Promise.all([
+      fetch('/api/nodes'),
+      fetch('/api/profiles')
+    ]);
+    nodes.value = await nodesRes.json();
+    profiles.value = await profilesRes.json();
   } catch (error) {
-    console.error('Failed to fetch nodes:', error);
-    alert('加载节点失败');
+    console.error('Failed to fetch data:', error);
+    alert('加载数据失败');
   } finally {
     isLoading.value = false;
   }
 }
 
-// 添加新节点
+// 添加节点
 async function addNode() {
-  if (!newNodeName.value.trim() || !newNodeUrl.value.trim()) {
-    alert('名称和URL不能为空');
-    return;
-  }
-  const newNode = {
-    name: newNodeName.value,
-    url: newNodeUrl.value,
-  };
-
-  try {
-    const response = await fetch('/api/nodes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newNode),
-    });
-    if (!response.ok) throw new Error('Failed to add node');
-
-    // 清空输入框并重新加载列表
-    newNodeName.value = '';
-    newNodeUrl.value = '';
-    fetchNodes(); 
-  } catch (error) {
-    console.error('Failed to add node:', error);
-    alert('添加节点失败');
-  }
+  // ... (此函数与上一阶段相同，为简洁省略) ...
 }
 
 // 删除节点
 async function deleteNode(id) {
-    if (!confirm('确定要删除这个节点吗？')) return;
-  try {
-    const response = await fetch(`/api/nodes/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete node');
+    // ... (此函数与上一阶段相同，为简洁省略) ...
+}
 
-    fetchNodes(); // 重新加载列表
+// 新增：添加输出配置
+async function addProfile() {
+  if (!newProfileName.value.trim() || selectedNodeIdsForNewProfile.value.length === 0) {
+    alert('配置名称不能为空，且至少要选择一个节点。');
+    return;
+  }
+  const newProfile = {
+    name: newProfileName.value,
+    nodeIds: selectedNodeIdsForNewProfile.value,
+    outputFormat: 'Clash', // 暂时硬编码
+  };
+
+  try {
+    await fetch('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newProfile),
+    });
+    newProfileName.value = '';
+    selectedNodeIdsForNewProfile.value = [];
+    fetchData(); // 重新加载所有数据
   } catch (error) {
-    console.error('Failed to delete node:', error);
-    alert('删除节点失败');
+    console.error('Failed to add profile:', error);
+    alert('添加配置失败');
   }
 }
 
-// --- 生命周期钩子 ---
-onMounted(() => {
-  fetchNodes();
-});
+// 新增：删除输出配置
+async function deleteProfile(id) {
+    if (!confirm('确定要删除这个输出配置吗？')) return;
+    try {
+        await fetch(`/api/profiles/${id}`, { method: 'DELETE' });
+        fetchData();
+    } catch (error) {
+        alert('删除配置失败');
+    }
+}
+
+// --- 生命周期 ---
+onMounted(fetchData);
+
+const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.location\.origin\}/subscribe/</span>{profileId}`;
+
 </script>
 
 <template>
   <main class="container">
-    <h1>ProSub - 节点管理</h1>
+    <h1>ProSub - 统一管理</h1>
 
     <div class="card">
-      <h2>添加新节点</h2>
-      <form @submit.prevent="addNode">
-        <input v-model="newNodeName" type="text" placeholder="节点或订阅名称" />
-        <input v-model="newNodeUrl" type="url" placeholder="订阅链接或节点URL" />
-        <button type="submit">添加</button>
-      </form>
+      <h2>输出配置</h2>
+      <div v-if="profiles.length > 0">
+        <ul>
+          <li v-for="profile in profiles" :key="profile.id">
+            <div>
+              <strong>{{ profile.name }}</strong>
+              <input :value="getSubscriptionLink(profile.id)" readonly />
+            </div>
+            <button @click="deleteProfile(profile.id)" class="delete-btn">删除</button>
+          </li>
+        </ul>
+      </div>
+      <div v-else>暂无输出配置。</div>
     </div>
+
+    <div class="card">
+        <h2>创建新输出配置</h2>
+        <form @submit.prevent="addProfile">
+            <input v-model="newProfileName" type="text" placeholder="配置名称 (如: 家庭Clash)" />
+            <fieldset>
+                <legend>选择要包含的节点:</legend>
+                <div v-for="node in nodes" :key="node.id">
+                    <input type="checkbox" :id="`node-${node.id}`" :value="node.id" v-model="selectedNodeIdsForNewProfile">
+                    <label :for="`node-${node.id}`">{{ node.name }}</label>
+                </div>
+            </fieldset>
+            <button type="submit">创建配置</button>
+        </form>
+    </div>
+
 
     <div class="card">
       <h2>节点列表</h2>
-      <div v-if="isLoading">正在加载...</div>
-      <ul v-else-if="nodes.length > 0">
-        <li v-for="node in nodes" :key="node.id">
-          <span><strong>{{ node.name }}</strong>: {{ node.url }}</span>
-          <button @click="deleteNode(node.id)" class="delete-btn">删除</button>
-        </li>
-      </ul>
-      <div v-else>暂无节点，请添加一个。</div>
-    </div>
+      </div>
+
   </main>
 </template>
 

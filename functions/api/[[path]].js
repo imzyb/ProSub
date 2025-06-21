@@ -1,71 +1,177 @@
 // functions/api/[[path]].js
 
+import yaml from 'js-yaml';
+
+// --- KV 存储的 Key ---
 const KV_KEY_NODES = 'prosub_nodes_v1';
+const KV_KEY_PROFILES = 'prosub_profiles_v1';
+
+// --- 核心转换逻辑 ---
 
 /**
- * 主请求处理函数
- * @param {EventContext} context
+ * 解析单个节点链接，返回 Clash Proxy Object
+ * @param {object} node - 包含 name 和 url 的节点对象
+ * @returns {object|null} - Clash Proxy 对象或 null
  */
+function parseNodeToClashProxy(node) {
+    if (!node || !node.url) return null;
+
+    try {
+        const url = new URL(node.url);
+        const protocol = url.protocol.replace(':', '');
+
+        switch (protocol) {
+            case 'vmess': {
+                const decoded = JSON.parse(atob(url.hostname));
+                return {
+                    name: node.name,
+                    type: 'vmess',
+                    server: decoded.add,
+                    port: decoded.port,
+                    uuid: decoded.id,
+                    alterId: decoded.aid,
+                    cipher: decoded.scy || 'auto',
+                    tls: decoded.tls === 'tls',
+                    'skip-cert-verify': true,
+                    network: decoded.net,
+                    'ws-opts': decoded.net === 'ws' ? { path: decoded.path, headers: { Host: decoded.host } } : undefined,
+                };
+            }
+            case 'trojan': {
+                return {
+                    name: node.name,
+                    type: 'trojan',
+                    server: url.hostname,
+                    port: url.port,
+                    password: url.username,
+                    sni: url.searchParams.get('sni') || url.hostname,
+                    'skip-cert-verify': true,
+                };
+            }
+            // 在这里可以添加对 vless, ss 等其他协议的支持
+            default:
+                return null; // 不支持的协议
+        }
+    } catch (error) {
+        console.error(`Failed to parse node: ${node.name}`, error);
+        return null;
+    }
+}
+
+/**
+ * 根据节点列表和 Profile 设置，构建 Clash 配置文本
+ * @param {Array<object>} nodes - 经过筛选的节点对象数组
+ * @param {object} profile - 输出配置对象
+ * @returns {string} - YAML 格式的 Clash 配置
+ */
+function buildClashConfig(nodes, profile) {
+    // 1. 解析所有节点，生成 proxy 定义
+    const proxies = nodes.map(parseNodeToClashProxy).filter(Boolean); // 过滤掉解析失败的 (null)
+    const proxyNames = proxies.map(p => p.name);
+
+    // 2. 构建 Clash 配置对象
+    const clashConfig = {
+        'port': 7890,
+        'socks-port': 7891,
+        'allow-lan': false,
+        'mode': 'rule',
+        'log-level': 'info',
+        'external-controller': '127.0.0.1:9090',
+        'proxies': proxies, // 放入解析好的 proxies
+        'proxy-groups': [
+            {
+                name: "🚀 PROXY",
+                type: "select",
+                proxies: ["DIRECT", "REJECT", ...proxyNames],
+            },
+            // 在这里可以添加更多自定义的 proxy-groups
+        ],
+        'rules': [
+            'MATCH,🚀 PROXY' // 默认所有流量走代理
+        ],
+    };
+
+    // 3. 使用 js-yaml 将对象转换为 YAML 字符串
+    return yaml.dump(clashConfig);
+}
+
+// --- 主请求处理函数 ---
 export async function onRequest(context) {
     const { request, env } = context;
     const url = new URL(request.url);
 
-    // 我们将 API 设计为 /api/nodes/:id 的形式
-    // pathParts[0] 会是 'nodes'
-    // pathParts[1] 会是 id (如果存在)
-    const pathParts = context.params.path;
-    const resource = pathParts[0];
-    const id = pathParts[1];
+    // --- 订阅链接生成路由 ---
+    if (url.pathname.startsWith('/subscribe/')) {
+        const profileId = url.pathname.split('/')[2];
+        if (!profileId) return new Response('Profile ID is missing', { status: 400 });
 
-    // 只处理 /api/nodes 的请求
-    if (resource !== 'nodes') {
-        return new Response('Not Found', { status: 404 });
-    }
+        try {
+            const profilesStr = await env.KV.get(KV_KEY_PROFILES);
+            const allProfiles = profilesStr ? JSON.parse(profilesStr) : [];
+            const targetProfile = allProfiles.find(p => p.id === profileId);
 
-    try {
-        switch (request.method) {
-            case 'GET':
-                // 获取所有节点
-                const dataStr = await env.KV.get(KV_KEY_NODES);
-                const nodes = dataStr ? JSON.parse(dataStr) : [];
-                return new Response(JSON.stringify(nodes), {
-                    headers: { 'Content-Type': 'application/json' },
-                });
+            if (!targetProfile) return new Response('Profile not found', { status: 404 });
 
-            case 'POST':
-                // 添加一个新节点
-                const newNode = await request.json();
-                if (!newNode.name || !newNode.url) { // 简单验证
-                    return new Response('Node name and url are required', { status: 400 });
-                }
-                newNode.id = crypto.randomUUID(); // 生成一个唯一的ID
-                newNode.createdAt = new Date().toISOString();
+            const nodesStr = await env.KV.get(KV_KEY_NODES);
+            const allNodes = nodesStr ? JSON.parse(nodesStr) : [];
+            
+            const selectedNodes = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
+            
+            // 调用我们自己的转换函数
+            const outputConfig = buildClashConfig(selectedNodes, targetProfile);
 
-                const currentNodesStr = await env.KV.get(KV_KEY_NODES);
-                const currentNodes = currentNodesStr ? JSON.parse(currentNodesStr) : [];
-                currentNodes.push(newNode);
-
-                await env.KV.put(KV_KEY_NODES, JSON.stringify(currentNodes));
-                return new Response(JSON.stringify(newNode), { status: 201 });
-
-            case 'DELETE':
-                // 删除一个节点
-                if (!id) {
-                    return new Response('Node ID is required', { status: 400 });
-                }
-                const nodesBeforeDeleteStr = await env.KV.get(KV_KEY_NODES);
-                let nodesBeforeDelete = nodesBeforeDeleteStr ? JSON.parse(nodesBeforeDeleteStr) : [];
-
-                const nodesAfterDelete = nodesBeforeDelete.filter(node => node.id !== id);
-
-                await env.KV.put(KV_KEY_NODES, JSON.stringify(nodesAfterDelete));
-                return new Response(null, { status: 204 }); // 204 No Content
-
-            default:
-                return new Response('Method Not Allowed', { status: 405 });
+            return new Response(outputConfig, {
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="${encodeURIComponent(targetProfile.name)}.yaml"`
+                },
+            });
+        } catch (error) {
+            console.error('Subscription generation failed:', error);
+            return new Response('Failed to generate subscription', { status: 500 });
         }
-    } catch (error) {
-        console.error(error);
-        return new Response('Internal Server Error', { status: 500 });
     }
+
+    // --- API 路由处理 ---
+    if (url.pathname.startsWith('/api/')) {
+        const pathParts = context.params.path;
+        const resource = pathParts[0];
+
+        // 统一处理 CRUD 的逻辑
+        const handleCrud = async (kvKey) => {
+            const id = pathParts[1];
+            let data = await env.KV.get(kvKey);
+            let items = data ? JSON.parse(data) : [];
+
+            switch (request.method) {
+                case 'GET':
+                    return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
+                case 'POST':
+                    const newItem = await request.json();
+                    newItem.id = crypto.randomUUID();
+                    items.push(newItem);
+                    await env.KV.put(kvKey, JSON.stringify(items));
+                    return new Response(JSON.stringify(newItem), { status: 201 });
+                case 'DELETE':
+                    if (!id) return new Response('ID required', { status: 400 });
+                    const remainingItems = items.filter(item => item.id !== id);
+                    await env.KV.put(kvKey, JSON.stringify(remainingItems));
+                    return new Response(null, { status: 204 });
+                default:
+                    return new Response('Method Not Allowed', { status: 405 });
+            }
+        };
+
+        if (resource === 'nodes') {
+            return handleCrud(KV_KEY_NODES);
+        }
+        if (resource === 'profiles') {
+            return handleCrud(KV_KEY_PROFILES);
+        }
+
+        return new Response('API route not found', { status: 404 });
+    }
+
+    // --- 静态文件服务 ---
+    return env.ASSETS.fetch(request);
 }
