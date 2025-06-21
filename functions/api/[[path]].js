@@ -2,11 +2,51 @@
 
 import yaml from 'js-yaml';
 
+// --- 【新增】认证与会话常量 ---
+const COOKIE_NAME = 'prosub_session';
+const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8小时
+
 // --- KV 存储的 Key ---
 const KV_KEY_NODES = 'prosub_nodes_v1';
 const KV_KEY_PROFILES = 'prosub_profiles_v1';
 
+// 创建一个带有HMAC签名的Token
+async function createSignedToken(key, data) {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(key);
+    const dataToSign = encoder.encode(data);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataToSign);
+    return `<span class="math-inline">\{data\}\.</span>{Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+}
+// 验证一个带有HMAC签名的Token
+async function verifySignedToken(key, token) {
+    if (!key || !token) return null;
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [data] = parts;
+    const expectedToken = await createSignedToken(key, data);
+    return token === expectedToken ? data : null;
+}
+// 认证中间件，检查请求的Cookie是否有效
+async function authMiddleware(request, env) {
+    if (!env.COOKIE_SECRET) {
+        // 如果未设置COOKIE_SECRET，则认为认证失败，增强安全性
+        console.error("COOKIE_SECRET is not set!");
+        return false;
+    }
+    const cookieHeader = request.headers.get('Cookie');
+    if (!cookieHeader) return false;
 
+    const cookies = cookieHeader.split(';').map(c => c.trim());
+    const sessionCookie = cookies.find(c => c.startsWith(`${COOKIE_NAME}=`));
+    if (!sessionCookie) return false;
+
+    const token = sessionCookie.split('=')[1];
+    const verifiedData = await verifySignedToken(env.COOKIE_SECRET, token);
+
+    return verifiedData && (Date.now() - parseInt(verifiedData, 10) < SESSION_DURATION);
+}
 // --- 核心转换逻辑 ---
 
 /**
