@@ -1,14 +1,14 @@
-// functions/api/[[path]].js
-
 import yaml from 'js-yaml';
+
+// --- KV 存储的 Key ---
+const KV_KEY_NODES = 'prosub_nodes_v1';
+const KV_KEY_PROFILES = 'prosub_profiles_v1';
 
 // --- 【新增】认证与会话常量 ---
 const COOKIE_NAME = 'prosub_session';
 const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8小时
 
-// --- KV 存储的 Key ---
-const KV_KEY_NODES = 'prosub_nodes_v1';
-const KV_KEY_PROFILES = 'prosub_profiles_v1';
+// --- 【新增】认证核心函数 ---
 
 // 创建一个带有HMAC签名的Token
 async function createSignedToken(key, data) {
@@ -17,8 +17,9 @@ async function createSignedToken(key, data) {
     const dataToSign = encoder.encode(data);
     const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
     const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataToSign);
-    return `<span class="math-inline">\{data\}\.</span>{Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+    return `${data}.${Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('')}`;
 }
+
 // 验证一个带有HMAC签名的Token
 async function verifySignedToken(key, token) {
     if (!key || !token) return null;
@@ -28,10 +29,10 @@ async function verifySignedToken(key, token) {
     const expectedToken = await createSignedToken(key, data);
     return token === expectedToken ? data : null;
 }
+
 // 认证中间件，检查请求的Cookie是否有效
 async function authMiddleware(request, env) {
     if (!env.COOKIE_SECRET) {
-        // 如果未设置COOKIE_SECRET，则认为认证失败，增强安全性
         console.error("COOKIE_SECRET is not set!");
         return false;
     }
@@ -41,12 +42,14 @@ async function authMiddleware(request, env) {
     const cookies = cookieHeader.split(';').map(c => c.trim());
     const sessionCookie = cookies.find(c => c.startsWith(`${COOKIE_NAME}=`));
     if (!sessionCookie) return false;
-
+    
     const token = sessionCookie.split('=')[1];
     const verifiedData = await verifySignedToken(env.COOKIE_SECRET, token);
-
+    
     return verifiedData && (Date.now() - parseInt(verifiedData, 10) < SESSION_DURATION);
 }
+
+
 // --- 核心转换逻辑 ---
 
 /**
@@ -148,19 +151,15 @@ function parseNodeToClashProxy(node) {
  * 根据节点列表和 Profile 设置，构建 Clash 配置文本
  * @param {Array<object>} nodes - 经过筛选的节点对象数组
  * @param {object} profile - 输出配置对象
+ * @param {string|null} remoteConfigContent - （新增）远程配置文件的文本内容
  * @returns {string} - YAML 格式的 Clash 配置
  */
-function buildClashConfig(nodes, profile) {
+function buildClashConfig(nodes, profile, remoteConfigContent) {
     const proxies = nodes.map(parseNodeToClashProxy).filter(Boolean);
     const proxyNames = proxies.map(p => p.name);
 
-    const clashConfig = {
-        'port': 7890,
-        'socks-port': 7891,
-        'allow-lan': false,
-        'mode': 'rule',
-        'log-level': 'info',
-        'external-controller': '127.0.0.1:9090',
+    // 基础配置
+    let finalConfig = {
         'proxies': proxies,
         'proxy-groups': [
             {
@@ -169,20 +168,48 @@ function buildClashConfig(nodes, profile) {
                 proxies: ["DIRECT", "REJECT", ...proxyNames],
             },
         ],
-        'rules': [
-            'MATCH,🚀 PROXY'
-        ],
+        'rules': [], // 规则留空，等待合并
     };
 
-    return yaml.dump(clashConfig);
+    // 如果存在远程配置内容，则进行合并
+    if (remoteConfigContent) {
+        try {
+            const remoteConfig = yaml.load(remoteConfigContent);
+            // 使用扩展运算符进行智能合并
+            finalConfig = { ...finalConfig, ...remoteConfig };
+            
+            // 特殊处理 proxy-groups 和 rules，进行追加而不是完全覆盖
+            // 确保我们自己生成的 PROXY 组始终存在
+            if (remoteConfig['proxy-groups']) {
+                finalConfig['proxy-groups'] = [
+                    ...finalConfig['proxy-groups'], 
+                    ...remoteConfig['proxy-groups']
+                ];
+            }
+            if (remoteConfig['rules']) {
+                // 将远程规则放在前面
+                finalConfig['rules'] = [
+                    ...remoteConfig['rules'],
+                ];
+            }
+        } catch (e) {
+            console.error("Failed to parse remote config YAML:", e);
+        }
+    }
+    
+    // 始终在规则列表末尾添加 MATCH 规则，确保全覆盖
+    finalConfig.rules.push('MATCH,🚀 PROXY');
+
+    return yaml.dump(finalConfig);
 }
+
 
 // --- 主请求处理函数 ---
 export async function onRequest(context) {
     const { request, env } = context;
     const url = new URL(request.url);
 
-    // --- 订阅链接生成路由 ---
+    // --- 订阅链接生成路由 (无需认证) ---
     if (url.pathname.startsWith('/subscribe/')) {
         const profileId = url.pathname.split('/')[2];
         if (!profileId) return new Response('Profile ID is missing', { status: 400 });
@@ -198,6 +225,19 @@ export async function onRequest(context) {
             const allNodes = nodesStr ? JSON.parse(nodesStr) : [];
             
             const selectedNodesFromProfile = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
+            
+            let remoteConfigContent = null;
+            if (targetProfile.remoteConfig && targetProfile.remoteConfig.startsWith('http')) {
+                try {
+                    console.log(`Fetching remote config from: ${targetProfile.remoteConfig}`);
+                    const configResponse = await fetch(targetProfile.remoteConfig);
+                    if (configResponse.ok) {
+                        remoteConfigContent = await configResponse.text();
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch remote config:", e);
+                }
+            }
             
             let resolvedNodes = [];
 
@@ -231,7 +271,7 @@ export async function onRequest(context) {
             const allResolvedNodesNested = await Promise.all(processingPromises);
             resolvedNodes = allResolvedNodesNested.flat();
 
-            const outputConfig = buildClashConfig(resolvedNodes, targetProfile);
+            const outputConfig = buildClashConfig(resolvedNodes, targetProfile, remoteConfigContent);
 
             return new Response(outputConfig, {
                 headers: {
@@ -246,10 +286,36 @@ export async function onRequest(context) {
         }
     }
 
-    // --- API 路由处理 ---
+    // --- API 路由处理 (需要认证) ---
     if (url.pathname.startsWith('/api/')) {
         const pathParts = context.params.path;
         const resource = pathParts[0];
+
+        if (resource === 'login' && request.method === 'POST') {
+            try {
+                const { password } = await request.json();
+                if (password === env.ADMIN_PASSWORD) {
+                    const token = await createSignedToken(env.COOKIE_SECRET, String(Date.now()));
+                    const headers = new Headers({ 'Content-Type': 'application/json' });
+                    headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DURATION / 1000}`);
+                    return new Response(JSON.stringify({ success: true }), { headers });
+                }
+                return new Response(JSON.stringify({ error: '密码错误' }), { status: 401 });
+            } catch (e) {
+                return new Response(JSON.stringify({ error: '登录请求无效' }), { status: 400 });
+            }
+        }
+
+        const isAuthed = await authMiddleware(request, env);
+        if (!isAuthed) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+        }
+
+        if (resource === 'logout' && request.method === 'POST') {
+            const headers = new Headers({ 'Content-Type': 'application/json' });
+            headers.append('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
+            return new Response(JSON.stringify({ success: true }), { headers });
+        }
 
         const handleCrud = async (kvKey) => {
             const id = pathParts[1];

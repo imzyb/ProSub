@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { extractNodeName } from '../utils.js'; // 确保已导入
+import { extractNodeName } from '../utils.js';
 
 // --- 状态 ---
 const nodes = ref([]);
@@ -13,7 +13,8 @@ const newNodeUrl = ref('');
 
 // Profile表单状态
 const newProfileName = ref('');
-const newProfileFormat = ref('Clash'); // 默认输出格式
+const newProfileFormat = ref('Clash');
+const newProfileRemoteConfig = ref('');
 const selectedNodeIdsForNewProfile = ref([]);
 
 // --- 自动填充节点名称 ---
@@ -32,6 +33,7 @@ async function fetchData() {
       fetch('/api/nodes'),
       fetch('/api/profiles')
     ]);
+    if (!nodesRes.ok || !profilesRes.ok) throw new Error("Failed to fetch data from server.");
     nodes.value = await nodesRes.json();
     profiles.value = await profilesRes.json();
   } catch (error) {
@@ -73,6 +75,7 @@ async function addProfile() {
     name: newProfileName.value,
     nodeIds: selectedNodeIdsForNewProfile.value,
     outputFormat: newProfileFormat.value,
+    remoteConfig: newProfileRemoteConfig.value,
   };
   await fetch('/api/profiles', {
     method: 'POST',
@@ -80,6 +83,7 @@ async function addProfile() {
     body: JSON.stringify(newProfile),
   });
   newProfileName.value = '';
+  newProfileRemoteConfig.value = '';
   selectedNodeIdsForNewProfile.value = [];
   fetchData();
 }
@@ -93,7 +97,6 @@ async function deleteProfile(id) {
 // --- 工具方法 ---
 const getSubscriptionLink = (profileId) => `${window.location.origin}/subscribe/${profileId}`;
 
-// 【修正后】只保留这一个 copyLink 函数
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => {
     alert('链接已复制到剪贴板！');
@@ -139,6 +142,7 @@ onMounted(fetchData);
         <select v-model="newProfileFormat">
           <option>Clash</option>
         </select>
+        <input v-model="newProfileRemoteConfig" type="url" placeholder="（可选）远程配置链接 (如 Gist URL)" />
         <fieldset>
           <legend>选择要包含的节点:</legend>
           <div v-for="node in nodes" :key="node.id" class="checkbox-item">
@@ -173,7 +177,7 @@ onMounted(fetchData);
 <style scoped>
 /* 容器和卡片样式 */
 .container { max-width: 800px; margin: 2rem auto; padding: 1rem; font-family: sans-serif; }
-.card { background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+.card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
 h1, h2 { color: #333; }
 h1 { margin-bottom: 2rem; text-align: center; }
 h2 { margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;}
@@ -194,8 +198,8 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
 ul { list-style: none; padding: 0; }
 li { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
 li:last-child { border-bottom: none; }
-.profile-list li { flex-direction: column; align-items: stretch; gap: 0.5rem; }
-.profile-info { display: flex; flex-direction: column; gap: 0.5rem; }
+.profile-list li { flex-direction: row; align-items: center; gap: 1rem; }
+.profile-info { display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; }
 .link-wrapper { display: flex; }
 .link-wrapper input { flex-grow: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; background-color: #e9ecef; }
 .link-wrapper button { border-top-left-radius: 0; border-bottom-left-radius: 0; }
