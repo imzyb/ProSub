@@ -48,8 +48,58 @@ function parseNodeToClashProxy(node) {
                     'skip-cert-verify': true,
                 };
             }
-            // 在这里可以添加对 vless, ss 等其他协议的支持
+            // --- 【新增】VLESS 协议支持 ---
+            case 'vless': {
+                const sni = url.searchParams.get('sni') || url.hostname;
+                const wsPath = url.searchParams.get('path') || '/';
+                return {
+                    name: node.name,
+                    type: 'vless',
+                    server: url.hostname,
+                    port: url.port,
+                    uuid: url.username,
+                    network: url.searchParams.get('type') || 'ws', // 默认为 ws
+                    tls: url.searchParams.get('security') === 'tls',
+                    'skip-cert-verify': true,
+                    servername: sni,
+                    'ws-opts': {
+                        path: wsPath,
+                        headers: { Host: sni }
+                    }
+                };
+            }
+            // --- 【新增】Shadowsocks (SS) 协议支持 ---
+            case 'ss': {
+                // SS 链接有两种格式: a) base64   b) user:pass@server:port
+                const hashIndex = url.href.indexOf('#');
+                const fragment = hashIndex !== -1 ? url.href.substring(hashIndex) : '';
+                const mainPart = hashIndex !== -1 ? url.href.substring(0, hashIndex) : url.href;
+
+                let userInfo, serverInfo;
+                if (mainPart.includes('@')) {
+                    // 格式 b)
+                    const parts = mainPart.replace('ss://', '').split('@');
+                    userInfo = atob(parts[0]).split(':'); // method:password
+                    serverInfo = parts[1].split(':');
+                } else {
+                    // 格式 a)
+                    const decoded = atob(mainPart.replace('ss://', ''));
+                    const parts = decoded.split('@');
+                    userInfo = parts[0].split(':');
+                    serverInfo = parts[1].split(':');
+                }
+
+                return {
+                    name: node.name,
+                    type: 'ss',
+                    server: serverInfo[0],
+                    port: parseInt(serverInfo[1], 10),
+                    cipher: userInfo[0],
+                    password: userInfo[1],
+                };
+            }
             default:
+                console.warn(`Unsupported protocol: ${protocol}`);
                 return null; // 不支持的协议
         }
     } catch (error) {
@@ -117,6 +167,50 @@ export async function onRequest(context) {
             
             const selectedNodes = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
             
+            // 在 /subscribe/:profileId 路由处理逻辑中
+
+            try {
+                // ... (获取 profile 和 allNodes 的代码不变)
+
+                let resolvedNodes = [];
+
+                // 遍历 Profile 选择的所有节点
+                for (const node of selectedNodes) {
+                    // 如果是订阅链接 (http/https)
+                    if (node.url.startsWith('http')) {
+                        try {
+                            console.log(`Fetching remote subscription: ${node.name}`);
+                            const response = await fetch(node.url);
+                            if (response.ok) {
+                                const text = await response.text();
+                                // 解码 Base64 (如果需要)
+                                const decodedText = text.match(/^[a-zA-Z0-9+/=]+$/) ? atob(text) : text;
+                                // 按行分割，解析每一行作为一个新节点
+                                const lines = decodedText.split(/\r?\n/);
+                                for (const line of lines) {
+                                    if (line.trim()) {
+                                        // 为解析出的节点创建一个临时对象
+                                        // 注意：我们暂时无法获取远程节点的真实名称，可以用订阅名作为前缀
+                                        resolvedNodes.push({ name: `${node.name} - ${line.slice(0, 10)}`, url: line.trim() });
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.error(`Failed to fetch or parse subscription ${node.name}:`, e);
+                        }
+                    } else {
+                        // 如果是手动添加的节点，直接加入
+                        resolvedNodes.push(node);
+                    }
+                }
+
+                // 调用我们自己的转换函数，传入处理过的节点列表
+                const outputConfig = buildClashConfig(resolvedNodes, targetProfile);
+
+                // ... (返回响应的代码不变)
+            } catch (error) {
+                // ...
+            }
             // 调用我们自己的转换函数
             const outputConfig = buildClashConfig(selectedNodes, targetProfile);
 

@@ -9,7 +9,8 @@ const isLoading = ref(true);
 // 表单状态
 const newNodeName = ref('');
 const newNodeUrl = ref('');
-const newProfileName = ref(''); // 新增
+const newProfileName = ref('');
+const newProfileFormat = ref('Clash'); // 新增，并设置默认值
 const selectedNodeIdsForNewProfile = ref([]); // 新增
 
 // --- API 调用 ---
@@ -51,7 +52,7 @@ async function addProfile() {
   const newProfile = {
     name: newProfileName.value,
     nodeIds: selectedNodeIdsForNewProfile.value,
-    outputFormat: 'Clash', // 暂时硬编码
+    outputFormat: newProfileFormat.value, // 【修改】使用用户选择的格式
   };
 
   try {
@@ -85,6 +86,15 @@ onMounted(fetchData);
 
 const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.location\.origin\}/subscribe/</span>{profileId}`;
 
+function copyLink(elementId) {
+    const input = document.getElementById(elementId);
+    if (input) {
+        input.select();
+        document.execCommand('copy');
+        alert('链接已复制到剪贴板！');
+    }
+}
+
 </script>
 
 <template>
@@ -97,10 +107,13 @@ const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.
         <ul>
           <li v-for="profile in profiles" :key="profile.id">
             <div>
-              <strong>{{ profile.name }}</strong>
-              <input :value="getSubscriptionLink(profile.id)" readonly />
+              <strong>{{ profile.name }}</strong> ({{profile.outputFormat}})
+              <input :id="`link-${profile.id}`" :value="getSubscriptionLink(profile.id)" readonly />
             </div>
-            <button @click="deleteProfile(profile.id)" class="delete-btn">删除</button>
+            <div>
+                <button @click="copyLink(`link-${profile.id}`)">复制</button>
+                <button @click="deleteProfile(profile.id)" class="delete-btn">删除</button>
+            </div>
           </li>
         </ul>
       </div>
@@ -111,13 +124,13 @@ const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.
         <h2>创建新输出配置</h2>
         <form @submit.prevent="addProfile">
             <input v-model="newProfileName" type="text" placeholder="配置名称 (如: 家庭Clash)" />
+
+            <select v-model="newProfileFormat">
+                <option>Clash</option>
+                </select>
+
             <fieldset>
-                <legend>选择要包含的节点:</legend>
-                <div v-for="node in nodes" :key="node.id">
-                    <input type="checkbox" :id="`node-${node.id}`" :value="node.id" v-model="selectedNodeIdsForNewProfile">
-                    <label :for="`node-${node.id}`">{{ node.name }}</label>
-                </div>
-            </fieldset>
+                </fieldset>
             <button type="submit">创建配置</button>
         </form>
     </div>
