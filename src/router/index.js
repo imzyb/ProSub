@@ -1,16 +1,37 @@
-// src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
+import DashboardView from '../views/DashboardView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView
+      redirect: '/dashboard/nodes' // 默认跳转到节点管理
     },
-    // 未来可以添加其他页面，例如 /about
+    {
+      path: '/dashboard',
+      component: DashboardView,
+      children: [
+        {
+          path: 'nodes',
+          name: 'nodes',
+          // 指向我们新的 NodesView 组件
+          component: () => import('../views/NodesView.vue')
+        },
+        {
+          path: 'profiles',
+          name: 'profiles',
+          // 指向我们新的 ProfilesView 组件
+          component: () => import('../views/ProfilesView.vue')
+        },
+        {
+            path: 'settings',
+            name: 'settings',
+            // 指向我们新的 SettingsView 组件
+            component: () => import('../views/SettingsView.vue')
+        }
+      ]
+    }
   ]
 })
 
