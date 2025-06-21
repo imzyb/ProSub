@@ -221,6 +221,7 @@ onMounted(fetchData);
         <input v-model="newProfileName" type="text" placeholder="配置名称 (例如: 家庭Clash)" required/>
         <select v-model="newProfileFormat">
           <option>Clash</option>
+          <option>V2Ray</option>
         </select>
         <input v-model="newProfileRemoteConfig" type="url" placeholder="（可选）远程配置链接 (如 Gist URL)" />
         <fieldset>

@@ -202,7 +202,108 @@ function buildClashConfig(nodes, profile, remoteConfigContent) {
 
     return yaml.dump(finalConfig);
 }
+/**
+ * 将单个节点对象解析成 V2Ray outbound 格式
+ * @param {object} node - 包含 name 和 url 的节点对象
+ * @returns {object|null} - V2Ray outbound 对象或 null
+ */
+function parseNodeToV2rayOutbound(node) {
+    try {
+        const parsedDetails = parseNodeToClashProxy(node); // 我们可以复用Clash的解析结果
+        if (!parsedDetails) return null;
 
+        const protocol = parsedDetails.type;
+        const settings = {};
+        const streamSettings = {
+            network: parsedDetails.network,
+            security: parsedDetails.tls ? 'tls' : 'none',
+            tlsSettings: parsedDetails.tls ? { serverName: parsedDetails.servername || parsedDetails.server } : undefined,
+            wsSettings: parsedDetails.network === 'ws' ? parsedDetails['ws-opts'] : undefined,
+        };
+
+        switch (protocol) {
+            case 'vmess':
+                settings.vnext = [{
+                    address: parsedDetails.server,
+                    port: parsedDetails.port,
+                    users: [{ id: parsedDetails.uuid, alterId: parsedDetails.alterId, security: parsedDetails.cipher }]
+                }];
+                break;
+            case 'vless':
+                settings.vnext = [{
+                    address: parsedDetails.server,
+                    port: parsedDetails.port,
+                    users: [{ id: parsedDetails.uuid, flow: 'xtls-rprx-vision' }]
+                }];
+                break;
+            case 'trojan':
+                settings.servers = [{
+                    address: parsedDetails.server,
+                    port: parsedDetails.port,
+                    password: parsedDetails.password
+                }];
+                break;
+            case 'ss':
+                 settings.servers = [{
+                    address: parsedDetails.server,
+                    port: parsedDetails.port,
+                    method: parsedDetails.cipher,
+                    password: parsedDetails.password
+                }];
+                break;
+            default:
+                return null;
+        }
+
+        return {
+            tag: node.name,
+            protocol,
+            settings,
+            streamSettings,
+        };
+
+    } catch (e) {
+        console.error("Failed to parse node to V2Ray outbound:", e);
+        return null;
+    }
+}
+
+/**
+ * 构建 V2Ray config.json
+ * @param {Array<object>} nodes
+ * @returns {string} - JSON 格式的 V2Ray 配置
+ */
+function buildV2rayConfig(nodes) {
+    const outbounds = nodes.map(parseNodeToV2rayOutbound).filter(Boolean);
+    const proxyTags = outbounds.map(o => o.tag);
+
+    const v2rayConfig = {
+        inbounds: [
+            {
+                port: 10808,
+                listen: '127.0.0.1',
+                protocol: 'socks',
+                settings: { auth: 'noauth', udp: true }
+            }
+        ],
+        outbounds: [
+            { tag: 'direct', protocol: 'freedom', settings: {} },
+            { tag: 'block', protocol: 'blackhole', settings: {} },
+            ...outbounds
+        ],
+        routing: {
+            domainStrategy: 'AsIs',
+            rules: [
+                { type: 'field', ip: ['geoip:private'], outboundTag: 'direct' },
+                { type: 'field', domain: ['geosite:cn'], outboundTag: 'direct' },
+                { type: 'field', ip: ['geoip:cn'], outboundTag: 'direct' },
+                { type: 'field', port: '0-65535', outboundTag: proxyTags[0] || 'direct' } // 默认走第一个代理
+            ]
+        }
+    };
+
+    return JSON.stringify(v2rayConfig, null, 2);
+}
 
 // --- 主请求处理函数 ---
 export async function onRequest(context) {
@@ -271,7 +372,19 @@ export async function onRequest(context) {
             const allResolvedNodesNested = await Promise.all(processingPromises);
             resolvedNodes = allResolvedNodesNested.flat();
 
-            const outputConfig = buildClashConfig(resolvedNodes, targetProfile, remoteConfigContent);
+            // --- 【修改】根据输出格式调用不同的构建函数 ---
+                let outputConfig = '';
+                let contentType = 'text/plain; charset=utf-8';
+                let fileExtension = 'txt';
+
+                if (targetProfile.outputFormat === 'V2Ray') {
+                    outputConfig = buildV2rayConfig(resolvedNodes);
+                    contentType = 'application/json; charset=utf-8';
+                    fileExtension = 'json';
+                } else { // 默认为 Clash
+                    outputConfig = buildClashConfig(resolvedNodes, targetProfile, remoteConfigContent);
+                    fileExtension = 'yaml';
+                }
 
             return new Response(outputConfig, {
                 headers: {
