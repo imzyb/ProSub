@@ -1,11 +1,10 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'; 
-// 导入我们的新工具函数
-import { extractNodeName } from '../utils.js';
+import { ref, onMounted, watch } from 'vue';
+import { extractNodeName } from '../utils.js'; // 确保已导入
 
 // --- 状态 ---
 const nodes = ref([]);
-const profiles = ref([]); // 新增：管理输出配置
+const profiles = ref([]);
 const isLoading = ref(true);
 
 // 节点表单状态
@@ -24,6 +23,7 @@ watch(newNodeUrl, (newUrl) => {
     if (extracted) newNodeName.value = extracted;
   }
 });
+
 // --- API 调用 ---
 async function fetchData() {
   isLoading.value = true;
@@ -91,8 +91,9 @@ async function deleteProfile(id) {
 }
 
 // --- 工具方法 ---
-const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.location\.origin\}/subscribe/</span>{profileId}`;
+const getSubscriptionLink = (profileId) => `${window.location.origin}/subscribe/${profileId}`;
 
+// 【修正后】只保留这一个 copyLink 函数
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => {
     alert('链接已复制到剪贴板！');
@@ -101,18 +102,9 @@ function copyLink(link) {
     alert('复制失败');
   });
 }
+
 // --- 生命周期 ---
 onMounted(fetchData);
-
-function copyLink(elementId) {
-    const input = document.getElementById(elementId);
-    if (input) {
-        input.select();
-        document.execCommand('copy');
-        alert('链接已复制到剪贴板！');
-    }
-}
-
 </script>
 
 <template>
