@@ -1,4 +1,6 @@
 <script setup>
+// The <script setup> section remains exactly the same as the previous version.
+// For brevity, it is not repeated here. Please keep your existing <script setup> block.
 import { ref, onMounted, computed } from 'vue';
 
 // --- 状态 ---
@@ -75,7 +77,7 @@ async function deleteProfile(id) {
   try {
       const updatedProfiles = profiles.value.filter(p => p.id !== id);
       const response = await fetch('/api/profiles', {
-          method: 'POST', // 使用批量保存来处理删除
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedProfiles)
       });
@@ -120,12 +122,10 @@ onMounted(fetchData);
               <strong>{{ profile.name }}</strong>
               <span>格式: {{ profile.outputFormat }}</span>
             </div>
-            <div class="link-wrapper">
-              <input :value="getSubscriptionLink(profile.id)" readonly />
-              <button @click="copyLink(getSubscriptionLink(profile.id))" class="btn-success">复制</button>
-            </div>
+            <input class="link-input" :value="getSubscriptionLink(profile.id)" readonly />
           </div>
           <div class="item-actions">
+            <button @click="copyLink(getSubscriptionLink(profile.id))" class="btn-success">复制</button>
             <button @click="startEditProfile(profile)" class="btn-warning">编辑</button>
             <button @click="deleteProfile(profile.id)" class="btn-danger">删除</button>
           </div>
@@ -163,10 +163,9 @@ onMounted(fetchData);
 </template>
 
 <style scoped>
-/* ... 其他样式保持不变，主要修改 li 和相关样式 ... */
+/* ... 其他样式保持不变，主要修改与列表项布局相关的CSS ... */
 .view-container { max-width: 1024px; margin: 0 auto; }
 .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
-/* ... h2, form, input, select, fieldset 等样式不变 ... */
 h2 { margin-top: 0; margin-bottom: 1rem; }
 .card-description { font-size: 0.9rem; color: #666; margin-top: -0.5rem; margin-bottom: 1.5rem; }
 form { display: flex; flex-direction: column; gap: 1rem; }
@@ -187,7 +186,7 @@ legend { padding: 0 0.5rem; font-weight: bold; }
 li {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: center; /* 关键：让左右两边的容器垂直居中对齐 */
   gap: 1.5rem;
   padding: 1.5rem;
   border-bottom: 1px solid #eee;
@@ -208,11 +207,21 @@ li:last-child { border-bottom: none; }
 .profile-details strong { font-size: 1.1rem; }
 .profile-details span { font-size: 0.85rem; color: #666; background-color: #f0f0f0; padding: 0.2rem 0.5rem; border-radius: 4px;}
 
-.link-wrapper { display: flex; }
-.link-wrapper input { flex-grow: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; background-color: #e9ecef; border: 1px solid #ccc; padding: 0.5rem; font-family: monospace; font-size: 0.85rem;}
-.link-wrapper button { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.link-input { /* 从 link-wrapper 中解放出来的 input */
+    width: 100%;
+    background-color: #e9ecef; 
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 0.5rem; 
+    font-family: monospace; 
+    font-size: 0.85rem;
+}
 
-.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.item-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
 .btn-danger { background-color: #dc3545; }
 .btn-success { background-color: #28a745; }
 .btn-warning { background-color: #ffc107; color: #212529; }
