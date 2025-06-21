@@ -17,6 +17,84 @@ const newProfileFormat = ref('Clash');
 const newProfileRemoteConfig = ref('');
 const selectedNodeIdsForNewProfile = ref([]);
 
+const fileInput = ref(null); // 【新增】用于引用文件输入框
+
+// 【新增】备份数据方法
+function backupData() {
+  if (nodes.value.length === 0 && profiles.value.length === 0) {
+    alert('没有数据可备份。');
+    return;
+  }
+  const backupObject = {
+    nodes: nodes.value,
+    profiles: profiles.value,
+    timestamp: new Date().toISOString(),
+  };
+  const jsonString = JSON.stringify(backupObject, null, 2);
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `prosub_backup_${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  alert('备份文件已开始下载！');
+}
+
+// 【新增】触发文件选择
+function triggerFileUpload() {
+  if (confirm('警告：恢复操作将覆盖您当前的所有节点和输出配置，是否继续？')) {
+    fileInput.value.click();
+  }
+}
+
+// 【新增】处理文件选择和恢复数据
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const content = e.target.result;
+      const restoredData = JSON.parse(content);
+
+      if (!restoredData.nodes || !restoredData.profiles) {
+        throw new Error('无效的备份文件格式。');
+      }
+
+      // 将恢复的数据发送到后端进行批量覆盖
+      const nodesResponse = await fetch('/api/nodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(restoredData.nodes),
+      });
+
+      const profilesResponse = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(restoredData.profiles),
+      });
+
+      if (!nodesResponse.ok || !profilesResponse.ok) {
+        throw new Error('向服务器保存恢复数据时出错。');
+      }
+
+      alert('数据恢复成功！正在重新加载...');
+      fetchData(); // 重新从后端拉取数据以刷新界面
+
+    } catch (error) {
+      alert(`恢复失败: ${error.message}`);
+    } finally {
+        // 清空文件输入框，以便下次能选择同一个文件
+        event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
 // --- 自动填充节点名称 ---
 watch(newNodeUrl, (newUrl) => {
   if (newUrl && !newNodeName.value) {
@@ -114,6 +192,15 @@ onMounted(fetchData);
   <main class="container">
     <h1>ProSub - 统一管理平台</h1>
 
+    <div class="card actions-card">
+      <h2>系统操作</h2>
+      <div class="actions-wrapper">
+        <button @click="backupData" class="action-btn backup-btn">备份所有数据</button>
+        <button @click="triggerFileUpload" class="action-btn restore-btn">从文件恢复</button>
+        <input type="file" ref="fileInput" @change="handleFileSelect" style="display: none" accept=".json" />
+      </div>
+    </div>
+
     <div class="card">
       <h2>输出配置 (Profiles)</h2>
       <div v-if="isLoading">正在加载...</div>
@@ -208,4 +295,12 @@ li:last-child { border-bottom: none; }
 fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 4px; }
 legend { padding: 0 0.5rem; }
 .checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
+
+.actions-card { background-color: #e9f5ff; }
+.actions-wrapper { display: flex; gap: 1rem; }
+.action-btn { flex-grow: 1; }
+.backup-btn { background-color: #17a2b8; }
+.backup-btn:hover { background-color: #138496; }
+.restore-btn { background-color: #ffc107; color: #212529; }
+.restore-btn:hover { background-color: #e0a800; }
 </style>
