@@ -6,6 +6,7 @@ import yaml from 'js-yaml';
 const KV_KEY_NODES = 'prosub_nodes_v1';
 const KV_KEY_PROFILES = 'prosub_profiles_v1';
 
+
 // --- 核心转换逻辑 ---
 
 /**
@@ -27,7 +28,7 @@ function parseNodeToClashProxy(node) {
                     name: node.name,
                     type: 'vmess',
                     server: decoded.add,
-                    port: decoded.port,
+                    port: parseInt(decoded.port, 10),
                     uuid: decoded.id,
                     alterId: decoded.aid,
                     cipher: decoded.scy || 'auto',
@@ -42,51 +43,46 @@ function parseNodeToClashProxy(node) {
                     name: node.name,
                     type: 'trojan',
                     server: url.hostname,
-                    port: url.port,
+                    port: parseInt(url.port, 10),
                     password: url.username,
                     sni: url.searchParams.get('sni') || url.hostname,
                     'skip-cert-verify': true,
                 };
             }
-            // --- 【新增】VLESS 协议支持 ---
             case 'vless': {
                 const sni = url.searchParams.get('sni') || url.hostname;
-                const wsPath = url.searchParams.get('path') || '/';
                 return {
                     name: node.name,
                     type: 'vless',
                     server: url.hostname,
-                    port: url.port,
+                    port: parseInt(url.port, 10),
                     uuid: url.username,
                     network: url.searchParams.get('type') || 'ws', // 默认为 ws
                     tls: url.searchParams.get('security') === 'tls',
                     'skip-cert-verify': true,
-                    servername: sni,
-                    'ws-opts': {
-                        path: wsPath,
+                    servername: sni, // for sni
+                    'ws-opts': url.searchParams.get('type') === 'ws' ? {
+                        path: url.searchParams.get('path') || '/',
                         headers: { Host: sni }
-                    }
+                    } : undefined,
                 };
             }
-            // --- 【新增】Shadowsocks (SS) 协议支持 ---
             case 'ss': {
-                // SS 链接有两种格式: a) base64   b) user:pass@server:port
                 const hashIndex = url.href.indexOf('#');
-                const fragment = hashIndex !== -1 ? url.href.substring(hashIndex) : '';
                 const mainPart = hashIndex !== -1 ? url.href.substring(0, hashIndex) : url.href;
-
+                
                 let userInfo, serverInfo;
                 if (mainPart.includes('@')) {
-                    // 格式 b)
+                    // 格式: ss://method:password@server:port (需要base64解码用户信息部分)
                     const parts = mainPart.replace('ss://', '').split('@');
-                    userInfo = atob(parts[0]).split(':'); // method:password
+                    userInfo = atob(parts[0]).split(':');
                     serverInfo = parts[1].split(':');
                 } else {
-                    // 格式 a)
+                    // 格式: ss://BASE64ENCODED(method:password@server:port)
                     const decoded = atob(mainPart.replace('ss://', ''));
-                    const parts = decoded.split('@');
-                    userInfo = parts[0].split(':');
-                    serverInfo = parts[1].split(':');
+                    const atIndex = decoded.indexOf('@');
+                    userInfo = decoded.substring(0, atIndex).split(':');
+                    serverInfo = decoded.substring(atIndex + 1).split(':');
                 }
 
                 return {
@@ -99,11 +95,11 @@ function parseNodeToClashProxy(node) {
                 };
             }
             default:
-                console.warn(`Unsupported protocol: ${protocol}`);
-                return null; // 不支持的协议
+                console.warn(`Unsupported protocol for Clash conversion: ${protocol}`);
+                return null;
         }
     } catch (error) {
-        console.error(`Failed to parse node: ${node.name}`, error);
+        console.error(`Failed to parse node: ${node.name} (${node.url})`, error);
         return null;
     }
 }
@@ -115,11 +111,9 @@ function parseNodeToClashProxy(node) {
  * @returns {string} - YAML 格式的 Clash 配置
  */
 function buildClashConfig(nodes, profile) {
-    // 1. 解析所有节点，生成 proxy 定义
-    const proxies = nodes.map(parseNodeToClashProxy).filter(Boolean); // 过滤掉解析失败的 (null)
+    const proxies = nodes.map(parseNodeToClashProxy).filter(Boolean);
     const proxyNames = proxies.map(p => p.name);
 
-    // 2. 构建 Clash 配置对象
     const clashConfig = {
         'port': 7890,
         'socks-port': 7891,
@@ -127,21 +121,19 @@ function buildClashConfig(nodes, profile) {
         'mode': 'rule',
         'log-level': 'info',
         'external-controller': '127.0.0.1:9090',
-        'proxies': proxies, // 放入解析好的 proxies
+        'proxies': proxies,
         'proxy-groups': [
             {
                 name: "🚀 PROXY",
                 type: "select",
                 proxies: ["DIRECT", "REJECT", ...proxyNames],
             },
-            // 在这里可以添加更多自定义的 proxy-groups
         ],
         'rules': [
-            'MATCH,🚀 PROXY' // 默认所有流量走代理
+            'MATCH,🚀 PROXY'
         ],
     };
 
-    // 3. 使用 js-yaml 将对象转换为 YAML 字符串
     return yaml.dump(clashConfig);
 }
 
@@ -165,54 +157,41 @@ export async function onRequest(context) {
             const nodesStr = await env.KV.get(KV_KEY_NODES);
             const allNodes = nodesStr ? JSON.parse(nodesStr) : [];
             
-            const selectedNodes = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
+            const selectedNodesFromProfile = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
             
-            // 在 /subscribe/:profileId 路由处理逻辑中
+            let resolvedNodes = [];
 
-            try {
-                // ... (获取 profile 和 allNodes 的代码不变)
+            const processingPromises = selectedNodesFromProfile.map(async (node) => {
+                if (node.url.startsWith('http')) {
+                    try {
+                        console.log(`Fetching remote subscription: ${node.name}`);
+                        const response = await fetch(node.url, { headers: { 'User-Agent': 'ProSub/1.0' } });
 
-                let resolvedNodes = [];
-
-                // 遍历 Profile 选择的所有节点
-                for (const node of selectedNodes) {
-                    // 如果是订阅链接 (http/https)
-                    if (node.url.startsWith('http')) {
-                        try {
-                            console.log(`Fetching remote subscription: ${node.name}`);
-                            const response = await fetch(node.url);
-                            if (response.ok) {
-                                const text = await response.text();
-                                // 解码 Base64 (如果需要)
-                                const decodedText = text.match(/^[a-zA-Z0-9+/=]+$/) ? atob(text) : text;
-                                // 按行分割，解析每一行作为一个新节点
-                                const lines = decodedText.split(/\r?\n/);
-                                for (const line of lines) {
-                                    if (line.trim()) {
-                                        // 为解析出的节点创建一个临时对象
-                                        // 注意：我们暂时无法获取远程节点的真实名称，可以用订阅名作为前缀
-                                        resolvedNodes.push({ name: `${node.name} - ${line.slice(0, 10)}`, url: line.trim() });
-                                    }
-                                }
-                            }
-                        } catch (e) {
-                            console.error(`Failed to fetch or parse subscription ${node.name}:`, e);
+                        if (response.ok) {
+                            const text = await response.text();
+                            const isBase64 = /^[a-zA-Z0-9+/=\s]+$/.test(text) && text.length % 4 === 0;
+                            const decodedText = isBase64 ? atob(text) : text;
+                            const lines = decodedText.split(/\r?\n/).filter(line => line.trim());
+                            const nodesFromSub = lines.map((line, index) => ({
+                                name: `${node.name} - ${index + 1}`,
+                                url: line.trim()
+                            }));
+                            return nodesFromSub;
                         }
-                    } else {
-                        // 如果是手动添加的节点，直接加入
-                        resolvedNodes.push(node);
+                    } catch (e) {
+                        console.error(`Failed to fetch or parse subscription ${node.name}:`, e);
+                        return [];
                     }
+                } else {
+                    return [node];
                 }
+                return [];
+            });
 
-                // 调用我们自己的转换函数，传入处理过的节点列表
-                const outputConfig = buildClashConfig(resolvedNodes, targetProfile);
+            const allResolvedNodesNested = await Promise.all(processingPromises);
+            resolvedNodes = allResolvedNodesNested.flat();
 
-                // ... (返回响应的代码不变)
-            } catch (error) {
-                // ...
-            }
-            // 调用我们自己的转换函数
-            const outputConfig = buildClashConfig(selectedNodes, targetProfile);
+            const outputConfig = buildClashConfig(resolvedNodes, targetProfile);
 
             return new Response(outputConfig, {
                 headers: {
@@ -220,6 +199,7 @@ export async function onRequest(context) {
                     'Content-Disposition': `attachment; filename="${encodeURIComponent(targetProfile.name)}.yaml"`
                 },
             });
+
         } catch (error) {
             console.error('Subscription generation failed:', error);
             return new Response('Failed to generate subscription', { status: 500 });
@@ -231,7 +211,6 @@ export async function onRequest(context) {
         const pathParts = context.params.path;
         const resource = pathParts[0];
 
-        // 统一处理 CRUD 的逻辑
         const handleCrud = async (kvKey) => {
             const id = pathParts[1];
             let data = await env.KV.get(kvKey);
