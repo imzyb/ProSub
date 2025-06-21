@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { extractNodeName } from '../utils.js';
+import NodeDetailModal from '../components/NodeDetailModal.vue';
+import { parseNodeUrl } from '../utils.js';
 
 // --- 状态 ---
 const nodes = ref([]);
@@ -18,6 +20,20 @@ const newProfileRemoteConfig = ref('');
 const selectedNodeIdsForNewProfile = ref([]);
 
 const fileInput = ref(null); // 【新增】用于引用文件输入框
+
+// 【新增】控制模态框的状态
+const isDetailModalVisible = ref(false);
+const selectedNodeForDetail = ref(null);
+// 【新增】显示详情的方法
+function showNodeDetails(node) {
+  selectedNodeForDetail.value = parseNodeUrl(node.url);
+  isDetailModalVisible.value = true;
+}
+
+// 【新增】关闭模态框的方法
+function closeDetailModal() {
+  isDetailModalVisible.value = false;
+}
 
 // 【新增】备份数据方法
 function backupData() {
@@ -243,21 +259,23 @@ onMounted(fetchData);
 
     <div class="card">
       <h2>节点池 (Node Pool)</h2>
-      <form @submit.prevent="addNode">
-        <input v-model="newNodeName" type="text" placeholder="节点或订阅名称" />
-        <input v-model="newNodeUrl" type="text" placeholder="粘贴订阅链接或节点分享链接" />
-        <button type="submit">添加节点/订阅</button>
-      </form>
       <hr/>
-      <div v-if="isLoading">正在加载...</div>
-      <ul v-else-if="nodes.length > 0">
+      <ul>
         <li v-for="node in nodes" :key="node.id">
-          <span><strong>{{ node.name }}</strong>: {{ node.url.substring(0, 50) }}...</span>
-          <button @click="deleteNode(node.id)" class="delete-btn">删除</button>
+          <span><strong>{{ node.name }}</strong>: {{ node.url.substring(0, 40) }}...</span>
+          <div>
+            <button @click="showNodeDetails(node)" class="detail-btn">详情</button>
+            <button @click="deleteNode(node.id)" class="delete-btn">删除</button>
+          </div>
         </li>
       </ul>
-      <div v-else>暂无节点。</div>
     </div>
+
+    <NodeDetailModal 
+      :show="isDetailModalVisible" 
+      :node="selectedNodeForDetail" 
+      @close="closeDetailModal"
+    />
   </main>
 </template>
 
@@ -303,4 +321,15 @@ legend { padding: 0 0.5rem; }
 .backup-btn:hover { background-color: #138496; }
 .restore-btn { background-color: #ffc107; color: #212529; }
 .restore-btn:hover { background-color: #e0a800; }
+
+li > div {
+    display: flex;
+    gap: 0.5rem;
+}
+.detail-btn {
+    background-color: #6c757d;
+}
+.detail-btn:hover {
+    background-color: #5a6268;
+}
 </style>
