@@ -186,7 +186,7 @@ legend { padding: 0 0.5rem; font-weight: bold; }
 li {
   display: flex;
   justify-content: space-between;
-  align-items: center; /* 关键：让左右两边的容器垂直居中对齐 */
+  align-items: flex-end; /* 将 center 修改为 flex-end */
   gap: 1.5rem;
   padding: 1.5rem;
   border-bottom: 1px solid #eee;
