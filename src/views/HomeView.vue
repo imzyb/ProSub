@@ -1,8 +1,8 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { extractNodeName } from '../utils.js';
+// 【修正】只从 utils.js 导入我们需要的 parseNodeUrl 函数
+import { parseNodeUrl } from '../utils.js'; 
 import NodeDetailModal from '../components/NodeDetailModal.vue';
-import { parseNodeUrl } from '../utils.js';
 
 // --- 状态 ---
 const nodes = ref([]);
@@ -19,103 +19,20 @@ const newProfileFormat = ref('Clash');
 const newProfileRemoteConfig = ref('');
 const selectedNodeIdsForNewProfile = ref([]);
 
-const fileInput = ref(null); // 【新增】用于引用文件输入框
-
-// 【新增】控制模态框的状态
+// 详情模态框状态
 const isDetailModalVisible = ref(false);
 const selectedNodeForDetail = ref(null);
-// 【新增】显示详情的方法
-function showNodeDetails(node) {
-  selectedNodeForDetail.value = parseNodeUrl(node.url);
-  isDetailModalVisible.value = true;
-}
-
-// 【新增】关闭模态框的方法
-function closeDetailModal() {
-  isDetailModalVisible.value = false;
-}
-
-// 【新增】备份数据方法
-function backupData() {
-  if (nodes.value.length === 0 && profiles.value.length === 0) {
-    alert('没有数据可备份。');
-    return;
-  }
-  const backupObject = {
-    nodes: nodes.value,
-    profiles: profiles.value,
-    timestamp: new Date().toISOString(),
-  };
-  const jsonString = JSON.stringify(backupObject, null, 2);
-  const blob = new Blob([jsonString], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `prosub_backup_${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  alert('备份文件已开始下载！');
-}
-
-// 【新增】触发文件选择
-function triggerFileUpload() {
-  if (confirm('警告：恢复操作将覆盖您当前的所有节点和输出配置，是否继续？')) {
-    fileInput.value.click();
-  }
-}
-
-// 【新增】处理文件选择和恢复数据
-function handleFileSelect(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const content = e.target.result;
-      const restoredData = JSON.parse(content);
-
-      if (!restoredData.nodes || !restoredData.profiles) {
-        throw new Error('无效的备份文件格式。');
-      }
-
-      // 将恢复的数据发送到后端进行批量覆盖
-      const nodesResponse = await fetch('/api/nodes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(restoredData.nodes),
-      });
-
-      const profilesResponse = await fetch('/api/profiles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(restoredData.profiles),
-      });
-
-      if (!nodesResponse.ok || !profilesResponse.ok) {
-        throw new Error('向服务器保存恢复数据时出错。');
-      }
-
-      alert('数据恢复成功！正在重新加载...');
-      fetchData(); // 重新从后端拉取数据以刷新界面
-
-    } catch (error) {
-      alert(`恢复失败: ${error.message}`);
-    } finally {
-        // 清空文件输入框，以便下次能选择同一个文件
-        event.target.value = '';
-    }
-  };
-  reader.readAsText(file);
-}
 
 // --- 自动填充节点名称 ---
+// 【修正】使用新的 parseNodeUrl 函数
 watch(newNodeUrl, (newUrl) => {
   if (newUrl && !newNodeName.value) {
-    const extracted = extractNodeName(newUrl);
-    if (extracted) newNodeName.value = extracted;
+    // 使用新的、更强大的解析函数
+    const details = parseNodeUrl(newUrl); 
+    // 从返回的对象中获取名称
+    if (details && details.name) {
+      newNodeName.value = details.name;
+    }
   }
 });
 
@@ -147,7 +64,7 @@ async function addNode() {
   await fetch('/api/nodes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newNode),
+    body: JSON.stringify([ ...nodes.value, newNode ]), // 发送整个更新后的数组
   });
   newNodeName.value = '';
   newNodeUrl.value = '';
@@ -156,7 +73,12 @@ async function addNode() {
 
 async function deleteNode(id) {
   if (!confirm('确定要删除这个节点吗？')) return;
-  await fetch(`/api/nodes/${id}`, { method: 'DELETE' });
+  const updatedNodes = nodes.value.filter(n => n.id !== id);
+  await fetch('/api/nodes', { // 使用批量保存接口来处理删除
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedNodes)
+  });
   fetchData();
 }
 
@@ -171,10 +93,12 @@ async function addProfile() {
     outputFormat: newProfileFormat.value,
     remoteConfig: newProfileRemoteConfig.value,
   };
+  // 使用批量保存接口
+  const updatedProfiles = [ ...profiles.value, { ...newProfile, id: crypto.randomUUID() } ];
   await fetch('/api/profiles', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newProfile),
+    body: JSON.stringify(updatedProfiles),
   });
   newProfileName.value = '';
   newProfileRemoteConfig.value = '';
@@ -184,12 +108,17 @@ async function addProfile() {
 
 async function deleteProfile(id) {
   if (!confirm('确定要删除这个输出配置吗？')) return;
-  await fetch(`/api/profiles/${id}`, { method: 'DELETE' });
+  const updatedProfiles = profiles.value.filter(p => p.id !== id);
+  await fetch('/api/profiles', { // 使用批量保存接口来处理删除
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedProfiles)
+  });
   fetchData();
 }
 
-// --- 工具方法 ---
-const getSubscriptionLink = (profileId) => `${window.location.origin}/subscribe/${profileId}`;
+// --- 工具与模态框方法 ---
+const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.location\.origin\}/subscribe/</span>{profileId}`;
 
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => {
@@ -198,6 +127,15 @@ function copyLink(link) {
     console.error('Could not copy text: ', err);
     alert('复制失败');
   });
+}
+
+function showNodeDetails(node) {
+  selectedNodeForDetail.value = parseNodeUrl(node.url);
+  isDetailModalVisible.value = true;
+}
+
+function closeDetailModal() {
+  isDetailModalVisible.value = false;
 }
 
 // --- 生命周期 ---
