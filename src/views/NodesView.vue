@@ -1,44 +1,57 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
 import { parseNodeUrl } from '../utils.js';
 import NodeDetailModal from '../components/NodeDetailModal.vue';
-import NodeEditorModal from '../components/NodeEditorModal.vue'; // 【新增】导入编辑器模态框
+import NodeEditorModal from '../components/NodeEditorModal.vue';
 
 const toast = useToast();
 
+// 控制模态框的状态
 const showEditorModal = ref(false);
-const nodeToEdit = ref(null); 
+const nodeToEdit = ref(null);
 const showDetailModal = ref(false);
 const selectedNodeForDetail = ref(null);
 
-// 【移除】不再需要本地的 nodes, isLoading 状态和 fetchNodes 函数
+// 【清理】所有与分页相关的 ref (如 currentPage, itemsPerPage) 已被彻底移除
 
 async function handleSaveNode(nodeData) {
   const isEditing = !!nodeData.id;
+  
+  if (!nodeData.name.trim() || !nodeData.url.trim()) {
+    toast.warning('名称和URL不能为空');
+    return;
+  }
+
   try {
     let response;
+    const headers = { 'Content-Type': 'application/json' };
+    
     if (isEditing) {
-      // 编辑模式: 使用PUT请求
+      // 编辑模式: 使用 PUT 请求更新单个节点
       response = await fetch(`/api/nodes/${nodeData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify(nodeData),
       });
     } else {
-      // 新增模式: 基于全局store.nodes创建新列表并发送
+      // 新增模式: 基于全局 store.nodes 创建新列表并发送
       const newNode = { id: crypto.randomUUID(), ...nodeData };
       response = await fetch('/api/nodes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify([...store.nodes, newNode]),
       });
     }
+    
     if (!response.ok) throw new Error('保存节点失败');
     toast.success(isEditing ? '节点更新成功！' : '节点添加成功！');
-    await store.fetchData(); // 【关键】调用store的方法来刷新全局数据
+    
+    await store.fetchData(); // 刷新全局数据
+
   } catch (error) {
+     console.error('保存节点失败:', error);
      toast.error('保存节点失败');
   }
 }
@@ -54,21 +67,19 @@ async function deleteNode(id) {
     });
     if (!response.ok) throw new Error('删除节点失败');
     toast.success('节点删除成功！');
-    await store.fetchData(); // 【关键】刷新全局数据
+    await store.fetchData();
   } catch(e) {
     toast.error('删除节点失败');
   }
 }
 
-// 【新增】打开新增模态框
 function openAddModal() {
-    nodeToEdit.value = null; // 传入null表示是新增模式
+    nodeToEdit.value = null;
     showEditorModal.value = true;
 }
 
-// 【新增】打开编辑模态框
 function openEditModal(node) {
-    nodeToEdit.value = { ...node }; // 传入要编辑的节点数据
+    nodeToEdit.value = { ...node };
     showEditorModal.value = true;
 }
 
@@ -77,6 +88,9 @@ function showNodeDetails(node) {
     showDetailModal.value = true;
 }
 
+function closeDetailModal() {
+    showDetailModal.value = false;
+}
 </script>
 
 <template>
@@ -89,6 +103,7 @@ function showNodeDetails(node) {
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       <hr/>
       <div v-if="store.isLoading">正在加载节点...</div>
+      
       <RecycleScroller
         v-else-if="store.nodes.length > 0"
         class="scroller"
@@ -106,6 +121,7 @@ function showNodeDetails(node) {
           </div>
         </div>
       </RecycleScroller>
+      
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
@@ -115,11 +131,10 @@ function showNodeDetails(node) {
         @close="showEditorModal = false"
         @save="handleSaveNode"
     />
-
     <NodeDetailModal 
       :show="showDetailModal" 
       :node="selectedNodeForDetail" 
-      @close="showDetailModal = false"
+      @close="closeDetailModal"
     />
   </div>
 </template>
@@ -128,26 +143,14 @@ function showNodeDetails(node) {
 /* 样式部分无需改动，保持原样即可 */
 .view-container { max-width: 1024px; margin: 0 auto; }
 .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-.card-header h2 {
-    margin: 0;
-}
-.btn-primary { background-color: #007bff; }
-.card-description { font-size: 0.9rem; color: #666; margin-top: -0.5rem; margin-bottom: 1.5rem; }
+.card-header { display: flex; justify-content: space-between; align-items: center; }
+.card-header h2 { margin: 0; }
+.card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; margin-bottom: 1.5rem; }
 h2 { margin-top: 0; margin-bottom: 1rem; }
 hr { border: none; border-top: 1px solid #eee; margin: 1.5rem 0; }
-form { display: flex; flex-direction: column; gap: 1rem; }
-input { padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
-.form-actions { display: flex; gap: 1rem; }
-button { padding: 0.75rem 1rem; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; }
-button:hover { opacity: 0.9; }
-button[type="submit"] { background-color: #007bff; }
 .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+button { padding: 0.6rem 1.2rem; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; font-weight: 500;}
+.btn-primary { background-color: #007bff; }
 .btn-danger { background-color: #dc3545; }
 .btn-secondary { background-color: #6c757d; }
 .btn-warning { background-color: #ffc107; color: #212529; }
