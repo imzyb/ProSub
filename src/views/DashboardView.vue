@@ -1,17 +1,19 @@
 <script setup>
-import { RouterView, RouterLink, useRouter } from 'vue-router';
+import { onMounted } from 'vue';
+import { RouterView, RouterLink } from 'vue-router';
+import { store } from '../store.js'; // 导入我们的全局Store
 
-const router = useRouter();
+// 在主面板组件被加载时，调用store的fetchData方法
+onMounted(() => {
+    store.fetchData();
+});
 
 async function handleLogout() {
     try {
         await fetch('/api/logout', { method: 'POST' });
-        // 登出成功后，强制刷新页面
-        // App.vue中的会话检查逻辑会自动将页面重定向到登录页
         window.location.reload();
     } catch(e) {
         console.error("Logout failed:", e);
-        alert("登出失败");
     }
 }
 </script>

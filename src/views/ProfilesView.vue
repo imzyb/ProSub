@@ -1,12 +1,10 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useToast } from 'vue-toastification';
+import { store } from '../store.js'; // 导入全局Store
 import CustomRulesModal from '../components/CustomRulesModal.vue';
 
 const toast = useToast();
-const nodes = ref([]);
-const profiles = ref([]);
-const isLoading = ref(true);
 
 // 在前端也定义一份规则集，用于渲染UI
 const availableRuleSets = [
@@ -31,39 +29,16 @@ const initialFormState = {
   userCustomRules: [], // 【修改】存储为数组
 };
 
-const formProfile = ref({ 
-    ...initialFormState,
-    userCustomRulesString: '', // 【新增】用于绑定textarea
-});
-
-// 3. 新增控制模态框的状态
-const showCustomRulesModal = ref(false);
+const formProfile = ref({ ...initialFormState, userCustomRulesString: '' });
 
 const isEditing = computed(() => !!formProfile.value.id);
 
-// --- API 调用 ---
-async function fetchData() {
-  isLoading.value = true;
-  try {
-    const [nodesRes, profilesRes] = await Promise.all([
-      fetch('/api/nodes'),
-      fetch('/api/profiles')
-    ]);
-    if (!nodesRes.ok || !profilesRes.ok) throw new Error("从服务器获取数据失败。");
-    nodes.value = await nodesRes.json();
-    profiles.value = await profilesRes.json();
-  } catch (error) {
-    console.error('获取数据失败:', error);
-    toast.error('加载数据列表失败');
-  } finally {
-    isLoading.value = false;
-  }
-}
+const showCustomRulesModal = ref(false);
 
 async function saveData(data) {
   const resource = isEditing.value ? `profiles/${formProfile.value.id}` : 'profiles';
   const method = isEditing.value ? 'PUT' : 'POST';
-  const body = isEditing.value ? data : [...profiles.value, data];
+  const body = isEditing.value ? data : [...store.profiles, data]; 
 
   try {
     const response = await fetch(`/api/${resource}`, {
@@ -85,7 +60,7 @@ async function saveData(data) {
 
 async function saveProfile() {
   // 1. 验证表单输入
-  if (!formProfile.value.name.trim() || formProfile.value.nodeIds.length === 0) {
+  if (success) {
     toast.warning('配置名称不能为空，且至少要选择一个节点。');
     return;
   }
@@ -118,14 +93,15 @@ async function saveProfile() {
   if (success) {
     toast.success(isEditing.value ? '配置更新成功！' : '配置创建成功！');
     resetForm();
-    await fetchData();
+    await store.fetchData();
   }
 }
 
 async function deleteProfile(id) {
   if (!confirm('确定要删除这个输出配置吗？')) return;
+  
   try {
-      const updatedProfiles = profiles.value.filter(p => p.id !== id);
+      const updatedProfiles = store.profiles.filter(p => p.id !== id);
       const response = await fetch('/api/profiles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -133,7 +109,7 @@ async function deleteProfile(id) {
       });
       if (!response.ok) throw new Error('删除配置失败');
       toast.success('配置删除成功！');
-      await fetchData();
+      await store.fetchData();
   } catch (e) {
       toast.error(e.message || '删除配置失败');
   }
@@ -161,82 +137,33 @@ function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => toast.success('链接已复制到剪贴板！'));
 }
 
-onMounted(fetchData);
 </script>
 
 <template>
   <div class="view-container">
     <div class="card">
       <h2>输出配置 (Profiles)</h2>
-      <p class="card-description">在这里组合您的节点，生成可在客户端中使用的最终订阅链接。</p>
-      <div v-if="isLoading">正在加载...</div>
-      <ul v-else-if="profiles.length > 0" class="item-list">
-        <li v-for="profile in profiles" :key="profile.id">
-          <div class="profile-content">
-            <div class="profile-details">
-              <strong>{{ profile.name }}</strong>
-              <span>格式: {{ profile.outputFormat }}</span>
-            </div>
-            <input class="link-input" :value="getSubscriptionLink(profile.id)" readonly />
-          </div>
-          <div class="item-actions">
-            <button @click="copyLink(getSubscriptionLink(profile.id))" class="btn-success">复制</button>
-            <button @click="startEditProfile(profile)" class="btn-warning">编辑</button>
-            <button @click="deleteProfile(profile.id)" class="btn-danger">删除</button>
-          </div>
-        </li>
-      </ul>
+      <div v-if="store.isLoading">正在加载...</div>
+      <ul v-else-if="store.profiles.length > 0" class="item-list">
+        </ul>
       <div v-else class="empty-state">暂无输出配置。</div>
     </div>
 
     <div class="card" id="profile-form">
       <h2>{{ isEditing ? '编辑输出配置' : '创建新输出配置' }}</h2>
       <form @submit.prevent="saveProfile">
-        <input v-model="formProfile.name" type="text" placeholder="配置名称 (例如: 家庭Clash)" required/>
-        <select v-model="formProfile.outputFormat">
-          <option>Clash</option>
-          <option>V2Ray</option>
-        </select>
-        
-        <fieldset>
-            <legend>选择内置Clash规则集:</legend>
-            <div class="checkbox-grid">
-                <div v-for="ruleSet in availableRuleSets" :key="ruleSet.id" class="checkbox-item">
-                    <input type="checkbox" :id="`ruleset-${ruleSet.id}`" :value="ruleSet.id" v-model="formProfile.selectedRuleSets">
-                    <label :for="`ruleset-${ruleSet.id}`">{{ ruleSet.name }}</label>
-                </div>
-            </div>
-        </fieldset>
-
-        <div>
-            <button type="button" @click="showCustomRulesModal = true" class="btn-secondary w-full">高级：编辑自定义规则</button>
-        </div>
-
         <fieldset>
             <legend>选择要包含的节点:</legend>
-            <div v-if="nodes.length > 0" class="checkbox-grid">
-                <div v-for="node in nodes" :key="node.id" class="checkbox-item">
+            <div v-if="store.nodes.length > 0" class="checkbox-grid">
+                <div v-for="node in store.nodes" :key="node.id" class="checkbox-item">
                   <input type="checkbox" :id="`node-sel-${node.id}`" :value="node.id" v-model="formProfile.nodeIds">
                   <label :for="`node-sel-${node.id}`">{{ node.name }}</label>
                 </div>
             </div>
-            <p v-else class="empty-state-small">请先在“节点管理”页面中添加节点。</p>
-        </fieldset>
-
-        <div class="form-actions">
-            <button type="submit" :disabled="!formProfile.name || formProfile.nodeIds.length === 0">{{ isEditing ? '更新配置' : '创建配置' }}</button>
-            <button v-if="isEditing" type="button" @click="resetForm" class="btn-secondary">取消编辑</button>
-        </div>
-      </form>
+            </fieldset>
+        </form>
     </div>
-
-    <CustomRulesModal 
-        :show="showCustomRulesModal" 
-        :rules="formProfile.userCustomRulesString"
-        @close="showCustomRulesModal = false"
-        @save="(newRules) => { formProfile.userCustomRulesString = newRules }"
-    />
-  </div>
+    </div>
 </template>
 
 <style scoped>

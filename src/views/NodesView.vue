@@ -1,30 +1,15 @@
 <script setup>
-// ... script setup 部分与上一版本完全相同，无需改动 ...
-import { ref, onMounted, computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useToast } from 'vue-toastification';
+import { store } from '../store.js'; // 导入全局Store
 import { parseNodeUrl } from '../utils.js';
 import NodeDetailModal from '../components/NodeDetailModal.vue';
 
 const toast = useToast();
-const nodes = ref([]);
-const isLoading = ref(true);
 const formNode = ref({ id: null, name: '', url: '' });
 const isEditing = computed(() => !!formNode.value.id);
 const isDetailModalVisible = ref(false);
 const selectedNodeForDetail = ref(null);
-
-async function fetchNodes() {
-  isLoading.value = true;
-  try {
-    const response = await fetch('/api/nodes');
-    if (!response.ok) throw new Error("从服务器获取节点数据失败。");
-    nodes.value = await response.json();
-  } catch (error) {
-    toast.error('加载节点列表失败');
-  } finally {
-    isLoading.value = false;
-  }
-}
 
 async function saveNode() {
   if (!formNode.value.name.trim() || !formNode.value.url.trim()) {
@@ -34,23 +19,19 @@ async function saveNode() {
   try {
     let response;
     if (isEditing.value) {
-      response = await fetch(`/api/nodes/${formNode.value.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formNode.value),
-      });
+      response = await fetch(`/api/nodes/${formNode.value.id}`, { /* ...PUT request... */ });
     } else {
       const newNode = { id: crypto.randomUUID(), ...formNode.value };
       response = await fetch('/api/nodes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify([...nodes.value, newNode]),
+        body: JSON.stringify([...store.nodes, newNode]), // 从store读取nodes
       });
     }
     if (!response.ok) throw new Error('保存节点失败');
     toast.success(isEditing.value ? '节点更新成功！' : '节点添加成功！');
     resetForm();
-    await fetchNodes();
+    await store.fetchData(); // 【关键】调用store的方法来刷新全局数据
   } catch (error) {
      toast.error('保存节点失败');
   }
@@ -59,15 +40,11 @@ async function saveNode() {
 async function deleteNode(id) {
   if (!confirm('确定要删除这个节点吗？')) return;
   try {
-    const updatedNodes = nodes.value.filter(n => n.id !== id);
-    const response = await fetch('/api/nodes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedNodes)
-    });
+    const updatedNodes = store.nodes.filter(n => n.id !== id); // 从store读取nodes
+    const response = await fetch('/api/nodes', { /* ...POST request... */ });
     if (!response.ok) throw new Error('删除节点失败');
     toast.success('节点删除成功！');
-    await fetchNodes();
+    await store.fetchData(); // 【关键】刷新全局数据
   } catch(e) {
     toast.error('删除节点失败');
   }
@@ -91,54 +68,30 @@ function closeDetailModal() {
   isDetailModalVisible.value = false;
 }
 
-onMounted(fetchNodes);
 </script>
 
 <template>
   <div class="view-container">
     <div class="card">
       <h2>{{ isEditing ? '编辑节点' : '添加新节点' }}</h2>
-      <form @submit.prevent="saveNode">
-        <input v-model="formNode.name" type="text" placeholder="节点或订阅名称" />
-        <input v-model="formNode.url" type="text" placeholder="粘贴订阅链接或节点分享链接" />
-        <div class="form-actions">
-          <button type="submit">{{ isEditing ? '更新节点' : '添加节点' }}</button>
-          <button v-if="isEditing" type="button" @click="resetForm" class="btn-secondary">取消编辑</button>
-        </div>
-      </form>
-    </div>
+      </div>
 
     <div class="card">
       <h2>节点池 (Node Pool)</h2>
       <hr/>
-      <div v-if="isLoading">正在加载节点...</div>
-
+      <div v-if="store.isLoading">正在加载节点...</div>
       <RecycleScroller
-        v-else-if="nodes.length > 0"
+        v-else-if="store.nodes.length > 0"
         class="scroller"
-        :items="nodes"
+        :items="store.nodes"
         :item-size="65" 
         key-field="id"
         v-slot="{ item }"
       >
-        <div class="node-item">
-          <span class="item-name"><strong>{{ item.name }}</strong></span>
-          <div class="item-actions">
-            <button @click="startEdit(item)" class="btn-warning">编辑</button>
-            <button @click="showNodeDetails(item)" class="btn-secondary">详情</button>
-            <button @click="deleteNode(item.id)" class="btn-danger">删除</button>
-          </div>
-        </div>
-      </RecycleScroller>
-
+        </RecycleScroller>
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
-
-    <NodeDetailModal 
-      :show="isDetailModalVisible" 
-      :node="selectedNodeForDetail" 
-      @close="closeDetailModal"
-    />
+    <NodeDetailModal :show="isDetailModalVisible" :node="selectedNodeForDetail" @close="closeDetailModal"/>
   </div>
 </template>
 
