@@ -101,7 +101,7 @@ function resetForm() {
   formProfile.value = { id: null, name: '', outputFormat: 'Clash', remoteConfig: '', nodeIds: [] };
 }
 
-const getSubscriptionLink = (profileId) => `${window.location.origin}/subscribe/${profileId}`;
+const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.location\.origin\}/api/subscribe/</span>{profileId}`;
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => alert('链接已复制到剪贴板！'));
 }

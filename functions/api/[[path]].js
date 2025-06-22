@@ -310,10 +310,13 @@ export async function onRequest(context) {
     const { request, env } = context;
     const url = new URL(request.url);
 
+    const pathSegments = context.params.path;
+    const resource = pathSegments[0];
+    const id = pathSegments[1];
+
     // --- 订阅链接生成路由 (无需认证) ---
-    if (url.pathname.startsWith('/subscribe/')) {
-        const profileId = url.pathname.split('/')[2];
-        if (!profileId) return new Response('Profile ID is missing', { status: 400 });
+    if (resource === 'subscribe' && id) {
+        const profileId = id;
 
         try {
             const profilesStr = await env.KV.get(KV_KEY_PROFILES);
@@ -328,30 +331,38 @@ export async function onRequest(context) {
             const selectedNodesFromProfile = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
             
             let remoteConfigContent = null;
+
             let resolvedNodes = [];
             // --- 【调试修改】暂时只处理手动节点，不抓取http订阅 ---
             const processingPromises = selectedNodesFromProfile.map(async (node) => {
                 if (node.url.startsWith('http')) {
-                    // 如果是http订阅，暂时跳过
-                    console.log(`DEBUG: Skipping remote subscription: ${node.name}`);
-                    return []; 
+                    try {
+                        const response = await fetch(node.url, { headers: { 'User-Agent': 'ProSub/1.0' } });
+                        if (response.ok) {
+                            const text = await response.text();
+                            const isBase64 = /^[a-zA-Z0-9+/=\s]+$/.test(text) && text.length % 4 === 0;
+                            const decodedText = isBase64 ? atob(text) : text;
+                            const lines = decodedText.split(/\r?\n/).filter(line => line.trim());
+                            return lines.map((line, index) => ({ name: `${node.name} - ${index + 1}`, url: line.trim() }));
+                        }
+                    } catch (e) { return []; }
                 } else {
-                    // 如果是手动节点，正常处理
                     return [node]; 
                 }
-            });
+                return [];
+            });                    
+
             const allResolvedNodesNested = await Promise.all(processingPromises);
             resolvedNodes = allResolvedNodesNested.flat();
             // 如果处理后没有任何节点，返回提示信息而不是空白页
             if (resolvedNodes.length === 0) {
-                return new Response(`// No nodes could be resolved for this profile. Please check if it contains valid manual nodes.`, {
-                    status: 200, // 返回200 OK，但内容是注释
-                    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-                });
-            } 
+                return new Response(`// No nodes could be resolved.`, { status: 200 });
+            }
+            
             let outputConfig = '';
             let contentType = 'text/plain; charset=utf-8';
             let fileExtension = 'txt';
+
             if (targetProfile.outputFormat === 'V2Ray') {
                 outputConfig = buildV2rayConfig(resolvedNodes);
                 contentType = 'application/json; charset=utf-8';
@@ -366,93 +377,87 @@ export async function onRequest(context) {
                     'Content-Type': contentType,
                     'Content-Disposition': `attachment; filename="<span class="math-inline">\{encodeURIComponent\(targetProfile\.name\)\}\.</span>{fileExtension}"`
                 },
-            });
+            });        
+ 
         } catch (error) {  
             // --- 【调试修改】在返回中打印明确的错误信息 ---
             console.error('Subscription generation failed:', error);
-            return new Response(`Backend Error: ${error.stack}`, { status: 500 });   
-        }           
+            return new Response(`Backend Error: ${error.stack}`, { status: 500 });        }           
     }
 
-    // --- API 路由处理 (需要认证) ---
-    if (url.pathname.startsWith('/api/')) {
-        const pathParts = context.params.path;
-        const resource = pathParts[0];
-        const id = pathParts[1];
-
-        if (resource === 'login' && request.method === 'POST') {
-            try {
-                const { password } = await request.json();
-                if (password === env.ADMIN_PASSWORD) {
-                    const token = await createSignedToken(env.COOKIE_SECRET, String(Date.now()));
-                    const headers = new Headers({ 'Content-Type': 'application/json' });
-                    headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DURATION / 1000}`);
-                    return new Response(JSON.stringify({ success: true }), { headers });
-                }
-                return new Response(JSON.stringify({ error: '密码错误' }), { status: 401 });
-            } catch (e) {
-                return new Response(JSON.stringify({ error: '登录请求无效' }), { status: 400 });
+    if (resource === 'login' && request.method === 'POST') {
+        try {
+            const { password } = await request.json();
+            if (password === env.ADMIN_PASSWORD) {
+                const token = await createSignedToken(env.COOKIE_SECRET, String(Date.now()));
+                const headers = new Headers({ 'Content-Type': 'application/json' });
+                headers.append('Set-Cookie', `${COOKIE_NAME}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DURATION / 1000}`);
+                return new Response(JSON.stringify({ success: true }), { headers });
             }
+            return new Response(JSON.stringify({ error: '密码错误' }), { status: 401 });
+        } catch (e) {
+            return new Response(JSON.stringify({ error: '登录请求无效' }), { status: 400 });
         }
+    }
 
-        const isAuthed = await authMiddleware(request, env);
-        if (!isAuthed) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-        }
+    const isAuthed = await authMiddleware(request, env);
+    if (!isAuthed) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
 
-        if (resource === 'logout' && request.method === 'POST') {
-            const headers = new Headers({ 'Content-Type': 'application/json' });
-            headers.append('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
-            return new Response(JSON.stringify({ success: true }), { headers });
-        }
+    if (resource === 'logout' && request.method === 'POST') {
+        const headers = new Headers({ 'Content-Type': 'application/json' });
+        headers.append('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
+        return new Response(JSON.stringify({ success: true }), { headers });
+    }
 
         // 在 functions/api/[[path]].js 文件中，找到并替换 handleCrud 函数
 
-        const handleCrud = async (kvKey, request, id) => {
-            let data = await env.KV.get(kvKey);
-            let items = data ? JSON.parse(data) : [];
+    const handleCrud = async (kvKey, request, id) => {
+        let data = await env.KV.get(kvKey);
+        let items = data ? JSON.parse(data) : [];
 
-            switch (request.method) {
-                case 'GET':
-                    return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
+        switch (request.method) {
+            case 'GET':
+                return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
 
-                case 'POST': {
-                    const newItems = await request.json();
-                    if (!Array.isArray(newItems)) {
-                        return new Response('Request body must be an array.', { status: 400 });
-                    }
-                    await env.KV.put(kvKey, JSON.stringify(newItems));
-                    return new Response(JSON.stringify({ success: true, count: newItems.length }));
+            case 'POST': {
+                const newItems = await request.json();
+                if (!Array.isArray(newItems)) {
+                    return new Response('Request body must be an array.', { status: 400 });
                 }
-
-                // --- 【新增】PUT方法用于更新单个项目 ---
-                case 'PUT': {
-                    if (!id) return new Response('ID is required for update', { status: 400 });
-
-                    const updatedItem = await request.json();
-                    const itemIndex = items.findIndex(item => item.id === id);
-
-                    if (itemIndex === -1) {
-                        return new Response('Item not found', { status: 404 });
-                    }
-
-                    // 用新数据替换旧数据，同时保留ID
-                    items[itemIndex] = { ...updatedItem, id: id };
-                    await env.KV.put(kvKey, JSON.stringify(items));
-
-                    return new Response(JSON.stringify(items[itemIndex]));
-                }
-
-                case 'DELETE':
-                    if (!id) return new Response('ID required', { status: 400 });
-                    const remainingItems = items.filter(item => item.id !== id);
-                    await env.KV.put(kvKey, JSON.stringify(remainingItems));
-                    return new Response(null, { status: 204 });
-
-                default:
-                    return new Response('Method Not Allowed', { status: 405 });
+                await env.KV.put(kvKey, JSON.stringify(newItems));
+                return new Response(JSON.stringify({ success: true, count: newItems.length }));
             }
-        };
+
+            // --- 【新增】PUT方法用于更新单个项目 ---
+            case 'PUT': {
+                if (!id) return new Response('ID is required for update', { status: 400 });
+
+                const updatedItem = await request.json();
+                const itemIndex = items.findIndex(item => item.id === id);
+
+                if (itemIndex === -1) {
+                    return new Response('Item not found', { status: 404 });
+                }
+
+                // 用新数据替换旧数据，同时保留ID
+                items[itemIndex] = { ...updatedItem, id: id };
+                await env.KV.put(kvKey, JSON.stringify(items));
+
+                return new Response(JSON.stringify(items[itemIndex]));
+            }
+
+            case 'DELETE':
+                if (!id) return new Response('ID required', { status: 400 });
+                const remainingItems = items.filter(item => item.id !== id);
+                await env.KV.put(kvKey, JSON.stringify(remainingItems));
+                return new Response(null, { status: 204 });
+
+            default:
+                return new Response('Method Not Allowed', { status: 405 });
+        }
+    };
 
         if (resource === 'nodes') {
             return handleCrud(KV_KEY_NODES, request, id);
@@ -464,6 +469,3 @@ export async function onRequest(context) {
         return new Response('API route not found', { status: 404 });
     }
 
-    // --- 静态文件服务 ---
-    return env.ASSETS.fetch(request);
-}
