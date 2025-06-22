@@ -226,17 +226,27 @@ function buildClashConfig(nodes, profile) {
         'rules': [],
     };
 
-    if (profile.selectedRuleSets && Array.isArray(profile.selectedRuleSets)) {
-        let selectedRules = [];
-        profile.selectedRuleSets.forEach(ruleSetId => {
-            if (PREDEFINED_RULES[ruleSetId]) {
-                selectedRules = [...selectedRules, ...PREDEFINED_RULES[ruleSetId]];
-            }
-        });
-        finalConfig.rules = selectedRules;
+    let finalRules = [];
+
+    // --- 【核心修改】 ---
+    // 1. 优先添加用户自定义规则
+    if (profile.userCustomRules && Array.isArray(profile.userCustomRules) && profile.userCustomRules.length > 0) {
+        finalRules = [...finalRules, ...profile.userCustomRules];
     }
 
+    // 2. 接着添加预设规则集
+    if (profile.selectedRuleSets && Array.isArray(profile.selectedRuleSets)) {
+        profile.selectedRuleSets.forEach(ruleSetId => {
+            if (PREDEFINED_RULES[ruleSetId]) {
+                finalRules = [...finalRules, ...PREDEFINED_RULES[ruleSetId]];
+            }
+        });
+    }
+
+    finalConfig.rules = finalRules;
+    // 3. 最后添加兜底规则
     finalConfig.rules.push('MATCH,漏网之鱼');
+
     return yaml.dump(finalConfig);
 }
 /**

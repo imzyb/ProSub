@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useToast } from 'vue-toastification';
+import CustomRulesModal from '../components/CustomRulesModal.vue';
 
 const toast = useToast();
 const nodes = ref([]);
@@ -27,9 +28,17 @@ const initialFormState = {
   outputFormat: 'Clash',
   nodeIds: [],
   selectedRuleSets: [],
+  userCustomRules: [], // 【修改】存储为数组
 };
 
-const formProfile = ref({ ...initialFormState });
+const formProfile = ref({ 
+    ...initialFormState,
+    userCustomRulesString: '', // 【新增】用于绑定textarea
+});
+
+// 3. 新增控制模态框的状态
+const showCustomRulesModal = ref(false);
+
 const isEditing = computed(() => !!formProfile.value.id);
 
 // --- API 调用 ---
@@ -75,13 +84,37 @@ async function saveData(data) {
 }
 
 async function saveProfile() {
+  // 1. 验证表单输入
   if (!formProfile.value.name.trim() || formProfile.value.nodeIds.length === 0) {
     toast.warning('配置名称不能为空，且至少要选择一个节点。');
     return;
   }
-  const profileData = isEditing.value ? formProfile.value : { ...formProfile.value, id: crypto.randomUUID() };
+
+  // 2. 准备要发送到后端的数据
+  // 将textarea中的自定义规则字符串，处理成一个干净的数组
+  const customRulesArray = formProfile.value.userCustomRulesString
+    .split('\n')
+    .map(r => r.trim())
+    .filter(Boolean);
+
+  // 构造最终的profile对象
+  const profileData = { 
+      ...formProfile.value, 
+      userCustomRules: customRulesArray // 使用处理好的数组
+  };
+  
+  // 删除临时的字符串属性，这个不需要保存到后端
+  delete profileData.userCustomRulesString; 
+  
+  // 如果是新增模式，则添加一个新的UUID
+  if (!isEditing.value) {
+      profileData.id = crypto.randomUUID();
+  }
+
+  // 3. 调用通用的保存函数，它会自动判断是新增(POST)还是编辑(PUT)
   const success = await saveData(profileData);
   
+  // 4. 如果保存成功，则重置表单并刷新列表
   if (success) {
     toast.success(isEditing.value ? '配置更新成功！' : '配置创建成功！');
     resetForm();
@@ -108,16 +141,18 @@ async function deleteProfile(id) {
 
 // --- 表单与工具方法 ---
 function startEditProfile(profile) {
+  const rulesString = Array.isArray(profile.userCustomRules) ? profile.userCustomRules.join('\n') : '';
   formProfile.value = { 
       ...profile, 
-      selectedRuleSets: profile.selectedRuleSets || [] 
+      selectedRuleSets: profile.selectedRuleSets || [],
+      userCustomRulesString: rulesString, // 【新增】
   };
   const formElement = document.getElementById('profile-form');
   if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
 }
 
 function resetForm() {
-  formProfile.value = { ...initialFormState };
+  formProfile.value = { ...initialFormState, userCustomRulesString: '' }; // 【修改】
 }
 
 const getSubscriptionLink = (profileId) => `${window.location.origin}/api/subscribe/${profileId}`;
@@ -173,6 +208,10 @@ onMounted(fetchData);
             </div>
         </fieldset>
 
+        <div>
+            <button type="button" @click="showCustomRulesModal = true" class="btn-secondary w-full">高级：编辑自定义规则</button>
+        </div>
+
         <fieldset>
             <legend>选择要包含的节点:</legend>
             <div v-if="nodes.length > 0" class="checkbox-grid">
@@ -190,6 +229,13 @@ onMounted(fetchData);
         </div>
       </form>
     </div>
+
+    <CustomRulesModal 
+        :show="showCustomRulesModal" 
+        :rules="formProfile.userCustomRulesString"
+        @close="showCustomRulesModal = false"
+        @save="(newRules) => { formProfile.userCustomRulesString = newRules }"
+    />
   </div>
 </template>
 
