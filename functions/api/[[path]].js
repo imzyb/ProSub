@@ -306,10 +306,13 @@ function buildV2rayConfig(nodes) {
 }
 
 // --- 主请求处理函数 ---
+// --- 主请求处理函数 ---
 export async function onRequest(context) {
     const { request, env } = context;
     const url = new URL(request.url);
 
+    // [[path]] 路由的最佳实践是使用 context.params.path
+    // 例如，对于 /api/subscribe/123, context.params.path 是 ['subscribe', '123']
     const pathSegments = context.params.path;
     const resource = pathSegments[0];
     const id = pathSegments[1];
@@ -317,7 +320,6 @@ export async function onRequest(context) {
     // --- 订阅链接生成路由 (无需认证) ---
     if (resource === 'subscribe' && id) {
         const profileId = id;
-
         try {
             const profilesStr = await env.KV.get(KV_KEY_PROFILES);
             const allProfiles = profilesStr ? JSON.parse(profilesStr) : [];
@@ -331,9 +333,18 @@ export async function onRequest(context) {
             const selectedNodesFromProfile = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
             
             let remoteConfigContent = null;
-
+            if (targetProfile.remoteConfig && targetProfile.remoteConfig.startsWith('http')) {
+                try {
+                    const configResponse = await fetch(targetProfile.remoteConfig);
+                    if (configResponse.ok) {
+                        remoteConfigContent = await configResponse.text();
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch remote config:", e);
+                }
+            }
+            
             let resolvedNodes = [];
-            // --- 【调试修改】暂时只处理手动节点，不抓取http订阅 ---
             const processingPromises = selectedNodesFromProfile.map(async (node) => {
                 if (node.url.startsWith('http')) {
                     try {
@@ -350,13 +361,16 @@ export async function onRequest(context) {
                     return [node]; 
                 }
                 return [];
-            });                    
+            });
 
             const allResolvedNodesNested = await Promise.all(processingPromises);
             resolvedNodes = allResolvedNodesNested.flat();
-            // 如果处理后没有任何节点，返回提示信息而不是空白页
+
             if (resolvedNodes.length === 0) {
-                return new Response(`// No nodes could be resolved.`, { status: 200 });
+                return new Response(`// No nodes could be resolved for this profile.`, { 
+                    status: 200,
+                    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                });
             }
             
             let outputConfig = '';
@@ -367,7 +381,7 @@ export async function onRequest(context) {
                 outputConfig = buildV2rayConfig(resolvedNodes);
                 contentType = 'application/json; charset=utf-8';
                 fileExtension = 'json';
-            } else {
+            } else { // 默认为 Clash
                 outputConfig = buildClashConfig(resolvedNodes, targetProfile, remoteConfigContent);
                 fileExtension = 'yaml';
             }
@@ -375,16 +389,18 @@ export async function onRequest(context) {
             return new Response(outputConfig, {
                 headers: {
                     'Content-Type': contentType,
-                    'Content-Disposition': `attachment; filename="<span class="math-inline">\{encodeURIComponent\(targetProfile\.name\)\}\.</span>{fileExtension}"`
+                    'Content-Disposition': `attachment; filename="${encodeURIComponent(targetProfile.name)}.${fileExtension}"`
                 },
-            });        
- 
-        } catch (error) {  
-            // --- 【调试修改】在返回中打印明确的错误信息 ---
+            });
+        } catch (error) {
             console.error('Subscription generation failed:', error);
-            return new Response(`Backend Error: ${error.stack}`, { status: 500 });        }           
+            return new Response(`Backend Error: ${error.stack}`, { status: 500 });
+        }
     }
 
+    // --- 受保护的API路由 ---
+
+    // 登录请求 (无需认证)
     if (resource === 'login' && request.method === 'POST') {
         try {
             const { password } = await request.json();
@@ -400,19 +416,20 @@ export async function onRequest(context) {
         }
     }
 
+    // 对后续所有API请求进行认证检查
     const isAuthed = await authMiddleware(request, env);
     if (!isAuthed) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
+    // 登出请求
     if (resource === 'logout' && request.method === 'POST') {
         const headers = new Headers({ 'Content-Type': 'application/json' });
         headers.append('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
         return new Response(JSON.stringify({ success: true }), { headers });
     }
-
-        // 在 functions/api/[[path]].js 文件中，找到并替换 handleCrud 函数
-
+    
+    // 定义唯一的CRUD处理器
     const handleCrud = async (kvKey, request, id) => {
         let data = await env.KV.get(kvKey);
         let items = data ? JSON.parse(data) : [];
@@ -420,7 +437,6 @@ export async function onRequest(context) {
         switch (request.method) {
             case 'GET':
                 return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
-
             case 'POST': {
                 const newItems = await request.json();
                 if (!Array.isArray(newItems)) {
@@ -429,43 +445,35 @@ export async function onRequest(context) {
                 await env.KV.put(kvKey, JSON.stringify(newItems));
                 return new Response(JSON.stringify({ success: true, count: newItems.length }));
             }
-
-            // --- 【新增】PUT方法用于更新单个项目 ---
             case 'PUT': {
                 if (!id) return new Response('ID is required for update', { status: 400 });
-
                 const updatedItem = await request.json();
                 const itemIndex = items.findIndex(item => item.id === id);
-
                 if (itemIndex === -1) {
                     return new Response('Item not found', { status: 404 });
                 }
-
-                // 用新数据替换旧数据，同时保留ID
                 items[itemIndex] = { ...updatedItem, id: id };
                 await env.KV.put(kvKey, JSON.stringify(items));
-
                 return new Response(JSON.stringify(items[itemIndex]));
             }
-
             case 'DELETE':
                 if (!id) return new Response('ID required', { status: 400 });
                 const remainingItems = items.filter(item => item.id !== id);
                 await env.KV.put(kvKey, JSON.stringify(remainingItems));
                 return new Response(null, { status: 204 });
-
             default:
                 return new Response('Method Not Allowed', { status: 405 });
         }
     };
 
-        if (resource === 'nodes') {
-            return handleCrud(KV_KEY_NODES, request, id);
-        }
-        if (resource === 'profiles') {
-            return handleCrud(KV_KEY_PROFILES, request, id);
-        }
-
-        return new Response('API route not found', { status: 404 });
+    // 调用CRUD处理器
+    if (resource === 'nodes') {
+        return handleCrud(KV_KEY_NODES, request, id);
     }
-
+    if (resource === 'profiles') {
+        return handleCrud(KV_KEY_PROFILES, request, id);
+    }
+    
+    // 如果没有任何路由匹配，则返回404
+    return new Response('API route not found', { status: 404 });
+}
