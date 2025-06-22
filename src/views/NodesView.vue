@@ -1,39 +1,34 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
-import { store } from '../store.js'; // 导入全局Store
+import { store } from '../store.js';
 import { parseNodeUrl } from '../utils.js';
 import NodeDetailModal from '../components/NodeDetailModal.vue';
+import NodeEditorModal from '../components/NodeEditorModal.vue'; // 【新增】导入编辑器模态框
 
 const toast = useToast();
 
-// 表单状态现在是本地的，因为它只跟本组件的表单相关
-const formNode = ref({ id: null, name: '', url: '' });
-const isEditing = computed(() => !!formNode.value.id);
-
-// 详情模态框的状态也是本地的
-const isDetailModalVisible = ref(false);
+const showEditorModal = ref(false);
+const nodeToEdit = ref(null); 
+const showDetailModal = ref(false);
 const selectedNodeForDetail = ref(null);
 
 // 【移除】不再需要本地的 nodes, isLoading 状态和 fetchNodes 函数
 
-async function saveNode() {
-  if (!formNode.value.name.trim() || !formNode.value.url.trim()) {
-    toast.warning('名称和URL不能为空');
-    return;
-  }
+async function handleSaveNode(nodeData) {
+  const isEditing = !!nodeData.id;
   try {
     let response;
-    if (isEditing.value) {
+    if (isEditing) {
       // 编辑模式: 使用PUT请求
-      response = await fetch(`/api/nodes/${formNode.value.id}`, {
+      response = await fetch(`/api/nodes/${nodeData.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formNode.value),
+        body: JSON.stringify(nodeData),
       });
     } else {
       // 新增模式: 基于全局store.nodes创建新列表并发送
-      const newNode = { id: crypto.randomUUID(), ...formNode.value };
+      const newNode = { id: crypto.randomUUID(), ...nodeData };
       response = await fetch('/api/nodes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,11 +36,9 @@ async function saveNode() {
       });
     }
     if (!response.ok) throw new Error('保存节点失败');
-    toast.success(isEditing.value ? '节点更新成功！' : '节点添加成功！');
-    resetForm();
+    toast.success(isEditing ? '节点更新成功！' : '节点添加成功！');
     await store.fetchData(); // 【关键】调用store的方法来刷新全局数据
   } catch (error) {
-     console.error('保存节点失败:', error);
      toast.error('保存节点失败');
   }
 }
@@ -67,44 +60,33 @@ async function deleteNode(id) {
   }
 }
 
-function startEdit(node) {
-  formNode.value = { ...node };
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+// 【新增】打开新增模态框
+function openAddModal() {
+    nodeToEdit.value = null; // 传入null表示是新增模式
+    showEditorModal.value = true;
 }
 
-function resetForm() {
-  formNode.value = { id: null, name: '', url: '' };
+// 【新增】打开编辑模态框
+function openEditModal(node) {
+    nodeToEdit.value = { ...node }; // 传入要编辑的节点数据
+    showEditorModal.value = true;
 }
 
 function showNodeDetails(node) {
-  selectedNodeForDetail.value = parseNodeUrl(node.url);
-  isDetailModalVisible.value = true;
+    selectedNodeForDetail.value = parseNodeUrl(node.url);
+    showDetailModal.value = true;
 }
 
-function closeDetailModal() {
-  isDetailModalVisible.value = false;
-}
-
-// 【移除】onMounted钩子，因为数据由父组件DashboardView统一获取
 </script>
 
 <template>
   <div class="view-container">
     <div class="card">
-      <h2>{{ isEditing ? '编辑节点' : '添加新节点' }}</h2>
-      <p class="card-description">在这里添加和管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
-      <form @submit.prevent="saveNode">
-        <input v-model="formNode.name" type="text" placeholder="节点或订阅名称" />
-        <input v-model="formNode.url" type="text" placeholder="粘贴订阅链接或节点分享链接" />
-        <div class="form-actions">
-          <button type="submit">{{ isEditing ? '更新节点' : '添加节点' }}</button>
-          <button v-if="isEditing" type="button" @click="resetForm" class="btn-secondary">取消编辑</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>节点池 (Node Pool)</h2>
+      <div class="card-header">
+        <h2>节点池 (Node Pool)</h2>
+        <button @click="openAddModal" class="btn-primary">新增节点</button>
+      </div>
+      <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       <hr/>
       <div v-if="store.isLoading">正在加载节点...</div>
       <RecycleScroller
@@ -118,7 +100,7 @@ function closeDetailModal() {
         <div class="node-item">
           <span class="item-name"><strong>{{ item.name }}</strong></span>
           <div class="item-actions">
-            <button @click="startEdit(item)" class="btn-warning">编辑</button>
+            <button @click="openEditModal(item)" class="btn-warning">编辑</button>
             <button @click="showNodeDetails(item)" class="btn-secondary">详情</button>
             <button @click="deleteNode(item.id)" class="btn-danger">删除</button>
           </div>
@@ -126,11 +108,18 @@ function closeDetailModal() {
       </RecycleScroller>
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
-    
+
+    <NodeEditorModal
+        :show="showEditorModal"
+        :node="nodeToEdit"
+        @close="showEditorModal = false"
+        @save="handleSaveNode"
+    />
+
     <NodeDetailModal 
-      :show="isDetailModalVisible" 
+      :show="showDetailModal" 
       :node="selectedNodeForDetail" 
-      @close="closeDetailModal"
+      @close="showDetailModal = false"
     />
   </div>
 </template>
@@ -139,6 +128,16 @@ function closeDetailModal() {
 /* 样式部分无需改动，保持原样即可 */
 .view-container { max-width: 1024px; margin: 0 auto; }
 .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+.card-header h2 {
+    margin: 0;
+}
+.btn-primary { background-color: #007bff; }
 .card-description { font-size: 0.9rem; color: #666; margin-top: -0.5rem; margin-bottom: 1.5rem; }
 h2 { margin-top: 0; margin-bottom: 1rem; }
 hr { border: none; border-top: 1px solid #eee; margin: 1.5rem 0; }
