@@ -3,34 +3,27 @@ import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
   show: Boolean,
-  node: Object, // 接收一个用于编辑的节点对象，如果为null则是新增模式
+  node: Object,
+  isSaving: Boolean, // 新增：接收一个是否正在保存的状态
 });
 
 const emit = defineEmits(['close', 'save']);
-
-// 模态框内部的表单数据
 const formData = ref({ name: '', url: '' });
-
-// 判断是新增还是编辑模式
 const isEditing = computed(() => !!(props.node && props.node.id));
 
-// 监听props.show的变化，当模态框显示时，根据传入的node数据初始化表单
 watch(() => props.show, (newVal) => {
   if (newVal) {
     if (isEditing.value) {
-      // 编辑模式：用传入的数据填充表单
       formData.value = { ...props.node };
     } else {
-      // 新增模式：清空表单
       formData.value = { name: '', url: '' };
     }
   }
 });
 
 function handleSubmit() {
-  // 点击保存时，将表单数据通过save事件发送出去
+  if (props.isSaving) return; // 如果正在保存，则不重复提交
   emit('save', formData.value);
-  emit('close'); // 关闭模态框
 }
 </script>
 
@@ -50,7 +43,10 @@ function handleSubmit() {
       </form>
       <div class="modal-actions">
         <button @click="emit('close')" class="btn-secondary">取消</button>
-        <button type="submit" form="node-editor-form" class="btn-primary">{{ isEditing ? '更新' : '创建' }}</button>
+        <button type="submit" form="node-editor-form" class="btn-primary" :disabled="isSaving">
+          <Spinner v-if="isSaving" />
+          <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
+        </button>
       </div>
     </div>
   </div>

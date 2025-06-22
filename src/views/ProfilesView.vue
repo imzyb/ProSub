@@ -10,22 +10,22 @@ const profileToEdit = ref(null);
 
 async function handleSaveProfile(formData) {
   const isEditing = !!formData.id;
-
+  
   if (!formData.name.trim() || formData.nodeIds.length === 0) {
     toast.warning('配置名称不能为空，且至少要选择一个节点。');
     return;
   }
-
-  const customRulesArray = []; // 自定义规则功能已移除，保留空数组
+  
+  // 自定义规则功能已移除，确保字段为空数组
   const profileData = {
       ...formData,
-      userCustomRules: customRulesArray,
+      userCustomRules: [], 
   };
 
   if (!isEditing) {
       profileData.id = crypto.randomUUID();
   }
-
+  
   const resource = isEditing ? `profiles/${profileData.id}` : 'profiles';
   const method = isEditing ? 'PUT' : 'POST';
   const body = isEditing ? profileData : [...store.profiles, profileData];
@@ -67,7 +67,9 @@ function openEditModal(profile) {
   showEditorModal.value = true;
 }
 
-const getSubscriptionLink = (profileId) => `<span class="math-inline">\{window\.location\.origin\}/api/subscribe/</span>{profileId}`;
+// 【最终修正】确保此函数是纯净的 JavaScript
+const getSubscriptionLink = (profileId) => `${window.location.origin}/api/subscribe/${profileId}`;
+
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => toast.success('链接已复制到剪贴板！'));
 }

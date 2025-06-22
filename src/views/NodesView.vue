@@ -5,59 +5,51 @@ import { store } from '../store.js';
 import { parseNodeUrl } from '../utils.js';
 import NodeDetailModal from '../components/NodeDetailModal.vue';
 import NodeEditorModal from '../components/NodeEditorModal.vue';
+import Spinner from '../components/Spinner.vue';
 
 const toast = useToast();
-
-// 控制模态框的状态
 const showEditorModal = ref(false);
 const nodeToEdit = ref(null);
 const showDetailModal = ref(false);
 const selectedNodeForDetail = ref(null);
 
-// 【清理】所有与分页相关的 ref (如 currentPage, itemsPerPage) 已被彻底移除
+const isSavingNode = ref(false);
+const deletingNodeId = ref(null);
 
 async function handleSaveNode(nodeData) {
-  const isEditing = !!nodeData.id;
-  
-  if (!nodeData.name.trim() || !nodeData.url.trim()) {
-    toast.warning('名称和URL不能为空');
-    return;
-  }
-
+  isSavingNode.value = true;
   try {
-    let response;
+    const isEditing = !!nodeData.id;
+    if (!nodeData.name.trim() || !nodeData.url.trim()) {
+        toast.warning('名称和URL不能为空');
+        return;
+    }
     const headers = { 'Content-Type': 'application/json' };
-    
+    let response;
     if (isEditing) {
-      // 编辑模式: 使用 PUT 请求更新单个节点
       response = await fetch(`/api/nodes/${nodeData.id}`, {
-        method: 'PUT',
-        headers: headers,
-        body: JSON.stringify(nodeData),
+        method: 'PUT', headers, body: JSON.stringify(nodeData),
       });
     } else {
-      // 新增模式: 基于全局 store.nodes 创建新列表并发送
       const newNode = { id: crypto.randomUUID(), ...nodeData };
       response = await fetch('/api/nodes', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify([...store.nodes, newNode]),
+        method: 'POST', headers, body: JSON.stringify([...store.nodes, newNode]),
       });
     }
-    
     if (!response.ok) throw new Error('保存节点失败');
     toast.success(isEditing ? '节点更新成功！' : '节点添加成功！');
-    
-    await store.fetchData(); // 刷新全局数据
-
+    showEditorModal.value = false; // 保存成功后关闭模态框
+    await store.fetchData();
   } catch (error) {
-     console.error('保存节点失败:', error);
      toast.error('保存节点失败');
+  } finally {
+    isSavingNode.value = false;
   }
 }
 
 async function deleteNode(id) {
-  if (!confirm('确定要删除这个节点吗？')) return;
+  if (deletingNodeId.value || !confirm('确定要删除这个节点吗？')) return;
+  deletingNodeId.value = id;
   try {
     const updatedNodes = store.nodes.filter(n => n.id !== id);
     const response = await fetch('/api/nodes', {
@@ -70,6 +62,8 @@ async function deleteNode(id) {
     await store.fetchData();
   } catch(e) {
     toast.error('删除节点失败');
+  } finally {
+    deletingNodeId.value = null;
   }
 }
 
@@ -77,17 +71,14 @@ function openAddModal() {
     nodeToEdit.value = null;
     showEditorModal.value = true;
 }
-
 function openEditModal(node) {
     nodeToEdit.value = { ...node };
     showEditorModal.value = true;
 }
-
 function showNodeDetails(node) {
     selectedNodeForDetail.value = parseNodeUrl(node.url);
     showDetailModal.value = true;
 }
-
 function closeDetailModal() {
     showDetailModal.value = false;
 }
@@ -102,8 +93,7 @@ function closeDetailModal() {
       </div>
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       <hr/>
-      <div v-if="store.isLoading">正在加载节点...</div>
-      
+      <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
       <RecycleScroller
         v-else-if="store.nodes.length > 0"
         class="scroller"
@@ -117,17 +107,20 @@ function closeDetailModal() {
           <div class="item-actions">
             <button @click="openEditModal(item)" class="btn-warning">编辑</button>
             <button @click="showNodeDetails(item)" class="btn-secondary">详情</button>
-            <button @click="deleteNode(item.id)" class="btn-danger">删除</button>
+            <button @click="deleteNode(item.id)" class="btn-danger" :disabled="deletingNodeId === item.id">
+              <Spinner v-if="deletingNodeId === item.id" />
+              <span v-else>删除</span>
+            </button>
           </div>
         </div>
       </RecycleScroller>
-      
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
-
+    
     <NodeEditorModal
         :show="showEditorModal"
         :node="nodeToEdit"
+        :is-saving="isSavingNode" 
         @close="showEditorModal = false"
         @save="handleSaveNode"
     />
