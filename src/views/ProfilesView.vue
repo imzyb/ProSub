@@ -9,8 +9,16 @@ const isLoading = ref(true);
 
 // 在前端也定义一份规则集，用于渲染UI
 const availableRuleSets = [
-    { id: 'bypass_cn', name: '绕过中国大陆' },
-    { id: 'block_ads', name: '拦截广告' },
+    { id: 'Lan', name: '局域网' },
+    { id: 'Apple', name: '苹果服务' },
+    { id: 'Microsoft', name: '微软服务' },
+    { id: 'Google', name: '谷歌服务' },
+    { id: 'Proxy', name: '国外网站' },
+    { id: 'Cn', name: '国内网站' },
+    { id: 'Telegram', name: '电报' },
+    { id: 'Private', name: '私人' },
+    { id: 'Domestic', name: '家庭' },
+    { id: 'Ads', name: '广告拦截' }
 ];
 
 const initialFormState = {

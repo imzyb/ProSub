@@ -1,16 +1,35 @@
 import yaml from 'js-yaml';
 
 const PREDEFINED_RULES = {
-    block_ads: [
-        'DOMAIN-KEYWORD,ad,REJECT',
-        'DOMAIN-SUFFIX,ad.com,REJECT',
-        'DOMAIN-KEYWORD,advertisement,REJECT',
-        // ... 可在此处添加更多广告拦截规则
+    Lan: [
+        'FINAL,DIRECT,dns-failed'
     ],
-    bypass_cn: [
-        'GEOIP,CN,DIRECT',
-        'GEOSITE,CN,DIRECT',
-        // ... 可在此处添加更多大陆直连规则
+    Apple: [
+        'RULE-SET,apple,DIRECT'
+    ],
+    Microsoft: [
+        'RULE-SET,microsoft,DIRECT'
+    ],
+    Google: [
+        'RULE-SET,google,🚀 PROXY'
+    ],
+    Proxy: [
+        'RULE-SET,proxy,🚀 PROXY'
+    ],
+    Cn: [
+        'RULE-SET,cn,DIRECT'
+    ],
+    Telegram: [
+        'RULE-SET,telegram,🚀 PROXY'
+    ],
+    Private: [
+        'RULE-SET,private,DIRECT'
+    ],
+    Domestic: [
+        'RULE-SET,domestic,DIRECT'
+    ],
+    Ads: [
+        'RULE-SET,ads,REJECT'
     ]
 };
 
@@ -170,29 +189,43 @@ function parseNodeToClashProxy(node) {
  */
 // 在 functions/api/[[path]].js 文件中，找到并替换 buildClashConfig 函数
 
-function buildClashConfig(nodes, profile) { // 不再需要 remoteConfigContent 参数
+function buildClashConfig(nodes, profile) {
     const proxies = nodes.map(parseNodeToClashProxy).filter(Boolean);
     const proxyNames = proxies.map(p => p.name);
 
-    let finalConfig = {
+    const finalConfig = {
         'port': 7890,
         'socks-port': 7891,
-        'allow-lan': false,
+        'allow-lan': true,
         'mode': 'rule',
         'log-level': 'info',
         'external-controller': '127.0.0.1:9090',
         'proxies': proxies,
         'proxy-groups': [
-            {
-                name: "🚀 PROXY",
-                type: "select",
-                proxies: ["DIRECT", "REJECT", ...proxyNames],
-            },
+            { name: '🚀 PROXY', type: 'select', proxies: ['SELECT', 'DIRECT', ...proxyNames] },
+            { name: 'SELECT', type: 'select', proxies: [...proxyNames, 'DIRECT'] },
+            { name: '🍎 Apple', type: 'select', proxies: ['DIRECT', '🚀 PROXY'] },
+            { name: 'Ⓜ️ Microsoft', type: 'select', proxies: ['DIRECT', '🚀 PROXY'] },
+            { name: '📲 Telegram', type: 'select', proxies: ['🚀 PROXY', 'DIRECT'] },
+            { name: '谷歌Goolge', type: 'select', proxies: ['🚀 PROXY', 'DIRECT'] },
+            { name: '国外网站', type: 'select', proxies: ['🚀 PROXY', 'DIRECT'] },
+            { name: '广告拦截', type: 'select', proxies: ['REJECT', 'DIRECT'] },
+            { name: '漏网之鱼', type: 'select', proxies: ['🚀 PROXY', 'DIRECT'] },
         ],
-        'rules': [], // 规则初始为空
+        'rule-providers': {
+            ads: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/BanAD.list", path: './ruleset/ads.list', interval: 86400 },
+            apple: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/Apple.list", path: './ruleset/apple.list', interval: 86400 },
+            cn: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/Ruleset/NetEaseMusic.list", path: './ruleset/cn.list', interval: 86400 },
+            google: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/Ruleset/Google.list", path: './ruleset/google.list', interval: 86400 },
+            proxy: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/Proxy.list", path: './ruleset/proxy.list', interval: 86400 },
+            private: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/LAN.list", path: './ruleset/private.list', interval: 86400 },
+            domestic: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/Domestic.list", path: './ruleset/domestic.list', interval: 86400 },
+            telegram: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/Ruleset/Telegram.list", path: './ruleset/telegram.list', interval: 86400 },
+            microsoft: { type: 'http', behavior: 'domain', url: "https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@latest/Clash/Microsoft.list", path: './ruleset/microsoft.list', interval: 86400 },
+        },
+        'rules': [],
     };
 
-    // 【核心修改】根据用户选择的规则集来添加规则
     if (profile.selectedRuleSets && Array.isArray(profile.selectedRuleSets)) {
         let selectedRules = [];
         profile.selectedRuleSets.forEach(ruleSetId => {
@@ -203,9 +236,7 @@ function buildClashConfig(nodes, profile) { // 不再需要 remoteConfigContent 
         finalConfig.rules = selectedRules;
     }
 
-    // 始终在规则列表末尾添加 MATCH 规则，确保全覆盖
-    finalConfig.rules.push('MATCH,🚀 PROXY');
-
+    finalConfig.rules.push('MATCH,漏网之鱼');
     return yaml.dump(finalConfig);
 }
 /**
