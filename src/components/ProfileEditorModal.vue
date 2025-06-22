@@ -3,25 +3,44 @@ import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
   show: Boolean,
-  profile: Object, // 接收用于编辑的Profile对象，为null则是新增
-  nodes: Array,    // 接收所有可用节点，用于渲染复选框
+  profile: Object,
+  nodes: Array,
+  isSaving: Boolean,
 });
 
 const emit = defineEmits(['close', 'save']);
 
-// 定义表单的初始状态
 const getInitialFormState = () => ({
   name: '',
   outputFormat: 'Clash',
   selectedRuleSets: [],
-  userCustomRulesString: '',
   nodeIds: [],
 });
 
 const formData = ref(getInitialFormState());
 const isEditing = computed(() => !!(props.profile && props.profile.id));
 
-// 【新增】全选/反选逻辑
+watch(() => props.show, (newVal) => {
+  if (newVal) {
+    if (isEditing.value) {
+      formData.value = {
+        ...props.profile,
+        selectedRuleSets: props.profile.selectedRuleSets || [],
+      };
+    } else {
+      formData.value = getInitialFormState();
+    }
+  }
+});
+
+const availableRuleSets = [
+    { id: 'Lan', name: '局域网' }, { id: 'Apple', name: '苹果服务' },
+    { id: 'Microsoft', name: '微软服务' }, { id: 'Google', name: '谷歌服务' },
+    { id: 'Proxy', name: '国外网站' }, { id: 'Cn', name: '国内网站' },
+    { id: 'Telegram', name: '电报' }, { id: 'Private', name: '私人' },
+    { id: 'Domestic', name: '家庭' }, { id: 'Ads', name: '广告拦截' }
+];
+
 function selectAllRules() {
   formData.value.selectedRuleSets = availableRuleSets.map(r => r.id);
 }
@@ -39,37 +58,8 @@ function invertSelectionNodes() {
   formData.value.nodeIds = allNodeIds.filter(id => !currentSelection.has(id));
 }
 
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    if (isEditing.value) {
-      // 编辑模式：填充表单
-      formData.value = {
-        ...props.profile,
-        userCustomRulesString: Array.isArray(props.profile.userCustomRules) ? props.profile.userCustomRules.join('\n') : '',
-        selectedRuleSets: props.profile.selectedRuleSets || [],
-      };
-    } else {
-      // 新增模式：重置表单
-      formData.value = getInitialFormState();
-    }
-  }
-});
-
-// 在前端也定义一份规则集，用于渲染UI
-const availableRuleSets = [
-    { id: 'Lan', name: '局域网' },
-    { id: 'Apple', name: '苹果服务' },
-    { id: 'Microsoft', name: '微软服务' },
-    { id: 'Google', name: '谷歌服务' },
-    { id: 'Proxy', name: '国外网站' },
-    { id: 'Cn', name: '国内网站' },
-    { id: 'Telegram', name: '电报' },
-    { id: 'Private', name: '私人' },
-    { id: 'Domestic', name: '家庭' },
-    { id: 'Ads', name: '广告拦截' }
-];
-
 function handleSubmit() {
+  if (props.isSaving) return;
   emit('save', formData.value);
   emit('close');
 }
@@ -92,28 +82,39 @@ function handleSubmit() {
           </select>
         </div>
         <fieldset>
-          <legend>选择内置Clash规则集:</legend>
+          <legend>选择内置Clash规则集</legend>
           <div class="selection-actions">
             <button type="button" @click="selectAllRules" class="btn-link">全选</button>
             <button type="button" @click="invertSelectionRules" class="btn-link">反选</button>
           </div>
           <div class="checkbox-grid">
-              </div>
+            <div v-for="ruleSet in availableRuleSets" :key="ruleSet.id" class="checkbox-item">
+              <input type="checkbox" :id="`modal-ruleset-${ruleSet.id}`" :value="ruleSet.id" v-model="formData.selectedRuleSets">
+              <label :for="`modal-ruleset-${ruleSet.id}`">{{ ruleSet.name }}</label>
+            </div>
+          </div>
         </fieldset>
         <fieldset>
-          <legend>选择要包含的节点:</legend>
+          <legend>选择要包含的节点</legend>
           <div class="selection-actions">
             <button type="button" @click="selectAllNodes" class="btn-link">全选</button>
             <button type="button" @click="invertSelectionNodes" class="btn-link">反选</button>
           </div>
           <div v-if="nodes.length > 0" class="checkbox-grid node-selection">
-              </div>
-          <p v-else>暂无节点...</p>
+            <div v-for="node in nodes" :key="node.id" class="checkbox-item">
+              <input type="checkbox" :id="`modal-node-sel-${node.id}`" :value="node.id" v-model="formData.nodeIds">
+              <label :for="`modal-node-sel-${node.id}`">{{ node.name }}</label>
+            </div>
+          </div>
+          <p v-else>暂无节点，请先前往“节点管理”页面添加。</p>
         </fieldset>
       </form>
       <div class="modal-actions">
         <button @click="emit('close')" class="btn-secondary">取消</button>
-        <button type="submit" form="profile-editor-form" class="btn-primary">{{ isEditing ? '更新' : '创建' }}</button>
+        <button type="submit" form="profile-editor-form" class="btn-primary" :disabled="isSaving">
+            <Spinner v-if="isSaving" />
+            <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
+        </button>
       </div>
     </div>
   </div>
@@ -132,19 +133,8 @@ legend { padding: 0 0.5rem; font-weight: bold; }
 .node-selection { max-height: 200px; overflow-y: auto; }
 .checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
-.selection-actions {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-}
-.btn-link {
-    background: none;
-    border: none;
-    color: #007bff;
-    cursor: pointer;
-    padding: 0;
-    font-size: 0.85rem;
-}
-.btn-primary { background-color: #007bff; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; }
+.btn-primary { background-color: #007bff; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; min-width: 80px; }
 .btn-secondary { background-color: #6c757d; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; }
+.selection-actions { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
+.btn-link { background: none; border: none; color: #007bff; cursor: pointer; padding: 0; font-size: 0.85rem; }
 </style>

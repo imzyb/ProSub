@@ -10,11 +10,14 @@ export function parseNodeUrl(url) {
     try {
         const parsedUrl = new URL(url);
         const protocol = parsedUrl.protocol.replace(':', '');
-        const name = decodeURIComponent(parsedUrl.hash.substring(1));
+        
+        // 【关键】确保能解析出 remark/fragment
+        const remark = decodeURIComponent(parsedUrl.hash.substring(1));
 
         let details = {
             protocol,
-            name: name || '未命名',
+            name: remark || '未命名', // 优先使用remark作为name
+            remark: remark,
         };
 
         switch (protocol) {
