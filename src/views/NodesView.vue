@@ -99,6 +99,16 @@ function closeDetailModal() {
 </script>
 
 <template>
+  <template>
+    <div style="background: #ffc; padding: 1rem; border: 2px solid red; margin-bottom: 2rem;">
+      <h3>-- 调试信息 --</h3>
+      <p>store.nodes 数组中的项目数量: <strong>{{ store.nodes.length }}</strong></p>
+      <p>所有节点名称:</p>
+      <pre>{{ JSON.stringify(store.nodes.map(n => n.name), null, 2) }}</pre>
+    </div>
+    <div class="view-container">
+    </div>
+  </template>
   <div class="view-container">
     <div class="card">
       <div class="card-header">
