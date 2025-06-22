@@ -1,22 +1,31 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
+import { parseNodeUrl } from '../utils.js'; // 导入我们的解析工具
 
 const props = defineProps({
   show: Boolean,
   node: Object,
-  isSaving: Boolean, // 新增：接收一个是否正在保存的状态
+  isSaving: Boolean,
 });
-
 const emit = defineEmits(['close', 'save']);
+
 const formData = ref({ name: '', url: '' });
 const isEditing = computed(() => !!(props.node && props.node.id));
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    if (isEditing.value) {
-      formData.value = { ...props.node };
-    } else {
-      formData.value = { name: '', url: '' };
+    formData.value = isEditing.value ? { ...props.node } : { name: '', url: '' };
+  }
+});
+
+// 【新增】监听URL输入框的变化
+watch(() => formData.value.url, (newUrl) => {
+  // 只有当用户还没填写名称时，我们才尝试自动填充
+  if (newUrl && !formData.value.name) {
+    const parsed = parseNodeUrl(newUrl);
+    if (parsed && parsed.remark) {
+      // 将解析出的remark（#后面的部分）作为名称
+      formData.value.name = parsed.remark;
     }
   }
 });

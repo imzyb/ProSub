@@ -21,6 +21,24 @@ const getInitialFormState = () => ({
 const formData = ref(getInitialFormState());
 const isEditing = computed(() => !!(props.profile && props.profile.id));
 
+// 【新增】全选/反选逻辑
+function selectAllRules() {
+  formData.value.selectedRuleSets = availableRuleSets.map(r => r.id);
+}
+function invertSelectionRules() {
+  const allRuleIds = availableRuleSets.map(r => r.id);
+  const currentSelection = new Set(formData.value.selectedRuleSets);
+  formData.value.selectedRuleSets = allRuleIds.filter(id => !currentSelection.has(id));
+}
+function selectAllNodes() {
+  formData.value.nodeIds = props.nodes.map(n => n.id);
+}
+function invertSelectionNodes() {
+  const allNodeIds = props.nodes.map(n => n.id);
+  const currentSelection = new Set(formData.value.nodeIds);
+  formData.value.nodeIds = allNodeIds.filter(id => !currentSelection.has(id));
+}
+
 watch(() => props.show, (newVal) => {
   if (newVal) {
     if (isEditing.value) {
@@ -75,22 +93,22 @@ function handleSubmit() {
         </div>
         <fieldset>
           <legend>选择内置Clash规则集:</legend>
-          <div class="checkbox-grid">
-              <div v-for="ruleSet in availableRuleSets" :key="ruleSet.id" class="checkbox-item">
-                  <input type="checkbox" :id="`modal-ruleset-${ruleSet.id}`" :value="ruleSet.id" v-model="formData.selectedRuleSets">
-                  <label :for="`modal-ruleset-${ruleSet.id}`">{{ ruleSet.name }}</label>
-              </div>
+          <div class="selection-actions">
+            <button type="button" @click="selectAllRules" class="btn-link">全选</button>
+            <button type="button" @click="invertSelectionRules" class="btn-link">反选</button>
           </div>
+          <div class="checkbox-grid">
+              </div>
         </fieldset>
         <fieldset>
           <legend>选择要包含的节点:</legend>
-          <div v-if="nodes.length > 0" class="checkbox-grid node-selection">
-              <div v-for="node in nodes" :key="node.id" class="checkbox-item">
-                <input type="checkbox" :id="`modal-node-sel-${node.id}`" :value="node.id" v-model="formData.nodeIds">
-                <label :for="`modal-node-sel-${node.id}`">{{ node.name }}</label>
-              </div>
+          <div class="selection-actions">
+            <button type="button" @click="selectAllNodes" class="btn-link">全选</button>
+            <button type="button" @click="invertSelectionNodes" class="btn-link">反选</button>
           </div>
-          <p v-else>暂无节点，请先前往“节点管理”页面添加。</p>
+          <div v-if="nodes.length > 0" class="checkbox-grid node-selection">
+              </div>
+          <p v-else>暂无节点...</p>
         </fieldset>
       </form>
       <div class="modal-actions">
@@ -114,6 +132,19 @@ legend { padding: 0 0.5rem; font-weight: bold; }
 .node-selection { max-height: 200px; overflow-y: auto; }
 .checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+.selection-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+.btn-link {
+    background: none;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+}
 .btn-primary { background-color: #007bff; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; }
 .btn-secondary { background-color: #6c757d; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; }
 </style>
