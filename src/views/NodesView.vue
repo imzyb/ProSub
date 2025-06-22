@@ -27,12 +27,14 @@ async function handleSaveNode(nodeData) {
     const headers = { 'Content-Type': 'application/json' };
     let response;
     if (isEditing) {
+      // 编辑模式: 使用 PUT 请求更新单个节点
       response = await fetch(`/api/nodes/${nodeData.id}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(nodeData),
       });
     } else {
+      // 新增模式: 基于全局 store.nodes 创建新列表并发送
       const newNode = { id: crypto.randomUUID(), ...nodeData };
       response = await fetch('/api/nodes', {
         method: 'POST',
@@ -102,7 +104,7 @@ function closeDetailModal() {
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       <hr />
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
-
+      
       <ul v-else-if="store.nodes.length > 0" class="scroller">
         <li v-for="item in store.nodes" :key="item.id" class="node-item">
           <span class="item-name"><strong>{{ item.name }}</strong></span>
@@ -116,7 +118,7 @@ function closeDetailModal() {
           </div>
         </li>
       </ul>
-
+      
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
@@ -151,7 +153,14 @@ button:disabled { cursor: not-allowed; opacity: 0.7; }
 .btn-danger { background-color: #dc3545; }
 .btn-secondary { background-color: #6c757d; }
 .btn-warning { background-color: #ffc107; color: #212529; }
-.scroller { height: 500px; overflow-y: auto; }
-.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; height: 65px; }
+/* 我们暂时使用 ul + overflow 来代替虚拟列表，以排除库的干扰 */
+.scroller { 
+    height: auto; /* 高度自适应 */
+    max-height: 60vh; /* 设置一个最大高度，超出则滚动 */
+    overflow-y: auto; 
+    list-style: none;
+    padding: 0;
+}
+.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
 .item-name { word-break: break-all; padding-right: 1rem; }
 </style>
