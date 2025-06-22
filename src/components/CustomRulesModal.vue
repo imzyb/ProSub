@@ -25,7 +25,13 @@ function handleSave() {
     <div class="modal-content" @click.stop>
       <h3>编辑自定义规则</h3>
       <p class="modal-description">在这里输入您自己的Clash规则，每行一条。这些规则将拥有最高匹配优先级。</p>
-      <textarea v-model="localRules" rows="15"></textarea>
+      
+      <textarea 
+        v-model="localRules" 
+        rows="15"
+        placeholder="- DOMAIN-SUFFIX,google.com,🚀 PROXY&#10;- DOMAIN-KEYWORD,ad,REJECT&#10;- GEOIP,CN,DIRECT"
+      ></textarea>
+      
       <div class="modal-actions">
         <button @click="emit('close')" class="btn-secondary">取消</button>
         <button @click="handleSave" class="btn-primary">保存规则</button>
@@ -39,8 +45,8 @@ function handleSave() {
 .modal-content { background: white; padding: 2rem; border-radius: 8px; width: 90%; max-width: 700px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
 h3 { margin-top: 0; }
 .modal-description { font-size: 0.9rem; color: #666; margin-bottom: 1rem; }
-textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 0.5rem; font-family: monospace; }
+textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 0.5rem; font-family: monospace; line-height: 1.5; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; }
-.btn-primary { background-color: #007bff; }
-.btn-secondary { background-color: #6c757d; }
+.btn-primary { background-color: #007bff; color: white; border: none; border-radius: 5px; padding: 0.6rem 1.2rem; cursor: pointer; }
+.btn-secondary { background-color: #6c757d; color: white; border: none; border-radius: 5px; padding: 0.6rem 1.2rem; cursor: pointer; }
 </style>

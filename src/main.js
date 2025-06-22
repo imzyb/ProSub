@@ -4,9 +4,12 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 
-// 【新增】导入 Toast 插件和其默认CSS样式
 import Toast, { POSITION } from 'vue-toastification'
 import 'vue-toastification/dist/index.css'
+
+// 【新增】导入虚拟滚动库及其CSS
+import VueVirtualScroller from 'vue-virtual-scroller'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 import './assets/main.css'
 
@@ -29,5 +32,7 @@ app.use(Toast, {
   icon: true,
   rtl: false
 })
+
+app.use(VueVirtualScroller)
 
 app.mount('#app')

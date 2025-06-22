@@ -1,25 +1,18 @@
 <script setup>
+// ... script setup 部分与上一版本完全相同，无需改动 ...
 import { ref, onMounted, computed } from 'vue';
-import { useToast } from 'vue-toastification'; // 【新增】导入 useToast
+import { useToast } from 'vue-toastification';
 import { parseNodeUrl } from '../utils.js';
 import NodeDetailModal from '../components/NodeDetailModal.vue';
 
-const toast = useToast(); // 【新增】获取 toast 实例
-
+const toast = useToast();
 const nodes = ref([]);
 const isLoading = ref(true);
-
-// 表单状态
 const formNode = ref({ id: null, name: '', url: '' });
-
-// 计算属性，判断当前是新增模式还是编辑模式
 const isEditing = computed(() => !!formNode.value.id);
-
-// 模态框状态
 const isDetailModalVisible = ref(false);
 const selectedNodeForDetail = ref(null);
 
-// --- API 调用 ---
 async function fetchNodes() {
   isLoading.value = true;
   try {
@@ -27,8 +20,7 @@ async function fetchNodes() {
     if (!response.ok) throw new Error("从服务器获取节点数据失败。");
     nodes.value = await response.json();
   } catch (error) {
-    console.error('获取节点失败:', error);
-    toast.error('加载节点列表失败'); // 【修改】替换 alert
+    toast.error('加载节点列表失败');
   } finally {
     isLoading.value = false;
   }
@@ -36,38 +28,31 @@ async function fetchNodes() {
 
 async function saveNode() {
   if (!formNode.value.name.trim() || !formNode.value.url.trim()) {
-    toast.warning('名称和URL不能为空'); // 【修改】替换 alert
+    toast.warning('名称和URL不能为空');
     return;
   }
-
   try {
     let response;
     if (isEditing.value) {
-      // 编辑模式: 使用PUT请求
       response = await fetch(`/api/nodes/${formNode.value.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formNode.value),
       });
     } else {
-      // 新增模式: 使用POST请求
       const newNode = { id: crypto.randomUUID(), ...formNode.value };
-      // 注意：我们的POST API现在是批量接口，所以发送整个数组
       response = await fetch('/api/nodes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([...nodes.value, newNode]),
       });
     }
-
     if (!response.ok) throw new Error('保存节点失败');
-
+    toast.success(isEditing.value ? '节点更新成功！' : '节点添加成功！');
     resetForm();
-    await fetchNodes(); // 重新获取列表以刷新UI
-    toast.error('保存节点失败'); // 【修改】替换 alert
+    await fetchNodes();
   } catch (error) {
-     console.error('保存节点失败:', error);
-     toast.error('保存节点失败'); // 【修改】替换 alert
+     toast.error('保存节点失败');
   }
 }
 
@@ -81,23 +66,19 @@ async function deleteNode(id) {
         body: JSON.stringify(updatedNodes)
     });
     if (!response.ok) throw new Error('删除节点失败');
+    toast.success('节点删除成功！');
     await fetchNodes();
-    toast.success('节点删除成功！'); // 【新增】成功提示
   } catch(e) {
-    toast.error('删除节点失败'); // 【修改】替换 alert
+    toast.error('删除节点失败');
   }
 }
 
-// --- 表单与模态框逻辑 ---
 function startEdit(node) {
-  // 将节点数据填充到表单中，进入编辑模式
   formNode.value = { ...node };
-  // 滚动到表单位置，优化体验
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function resetForm() {
-  // 重置表单，回到新增模式
   formNode.value = { id: null, name: '', url: '' };
 }
 
@@ -131,16 +112,25 @@ onMounted(fetchNodes);
       <h2>节点池 (Node Pool)</h2>
       <hr/>
       <div v-if="isLoading">正在加载节点...</div>
-      <ul v-else-if="nodes.length > 0" class="item-list">
-        <li v-for="node in nodes" :key="node.id">
-          <span class="item-name"><strong>{{ node.name }}</strong></span>
+
+      <RecycleScroller
+        v-else-if="nodes.length > 0"
+        class="scroller"
+        :items="nodes"
+        :item-size="65" 
+        key-field="id"
+        v-slot="{ item }"
+      >
+        <div class="node-item">
+          <span class="item-name"><strong>{{ item.name }}</strong></span>
           <div class="item-actions">
-            <button @click="startEdit(node)" class="btn-warning">编辑</button>
-            <button @click="showNodeDetails(node)" class="btn-secondary">详情</button>
-            <button @click="deleteNode(node.id)" class="btn-danger">删除</button>
+            <button @click="startEdit(item)" class="btn-warning">编辑</button>
+            <button @click="showNodeDetails(item)" class="btn-secondary">详情</button>
+            <button @click="deleteNode(item.id)" class="btn-danger">删除</button>
           </div>
-        </li>
-      </ul>
+        </div>
+      </RecycleScroller>
+
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
@@ -153,7 +143,7 @@ onMounted(fetchNodes);
 </template>
 
 <style scoped>
-/* ... 之前的CSS样式保持不变，新增/修改以下样式 ... */
+/* ... 其他样式保持不变 ... */
 .view-container { max-width: 1024px; margin: 0 auto; }
 .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
 h2 { margin-top: 0; margin-bottom: 1rem; }
@@ -164,13 +154,28 @@ input { padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
 button { padding: 0.75rem 1rem; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; }
 button:hover { opacity: 0.9; }
 button[type="submit"] { background-color: #007bff; }
-.item-list { list-style: none; padding: 0; }
-li { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid #eee; }
-li:last-child { border-bottom: none; }
-.item-name { word-break: break-all; padding-right: 1rem; }
 .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 .btn-danger { background-color: #dc3545; }
 .btn-secondary { background-color: #6c757d; }
 .btn-warning { background-color: #ffc107; color: #212529; }
 .empty-state { text-align: center; padding: 2rem; color: #888; }
+
+/* 【新增】虚拟列表相关样式 */
+.scroller {
+  height: 500px; /* 必须为虚拟列表设置一个固定的高度 */
+  overflow-y: auto;
+}
+.node-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  /* item-size 65px = padding 1rem*2 (32px) + content height (approx 33px) */
+  height: 65px; 
+}
+.item-name {
+  word-break: break-all;
+  padding-right: 1rem;
+}
 </style>
