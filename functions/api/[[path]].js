@@ -328,75 +328,50 @@ export async function onRequest(context) {
             const selectedNodesFromProfile = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
             
             let remoteConfigContent = null;
-            if (targetProfile.remoteConfig && targetProfile.remoteConfig.startsWith('http')) {
-                try {
-                    console.log(`Fetching remote config from: ${targetProfile.remoteConfig}`);
-                    const configResponse = await fetch(targetProfile.remoteConfig);
-                    if (configResponse.ok) {
-                        remoteConfigContent = await configResponse.text();
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch remote config:", e);
-                }
-            }
-            
             let resolvedNodes = [];
-
+            // --- 【调试修改】暂时只处理手动节点，不抓取http订阅 ---
             const processingPromises = selectedNodesFromProfile.map(async (node) => {
                 if (node.url.startsWith('http')) {
-                    try {
-                        console.log(`Fetching remote subscription: ${node.name}`);
-                        const response = await fetch(node.url, { headers: { 'User-Agent': 'ProSub/1.0' } });
-
-                        if (response.ok) {
-                            const text = await response.text();
-                            const isBase64 = /^[a-zA-Z0-9+/=\s]+$/.test(text) && text.length % 4 === 0;
-                            const decodedText = isBase64 ? atob(text) : text;
-                            const lines = decodedText.split(/\r?\n/).filter(line => line.trim());
-                            const nodesFromSub = lines.map((line, index) => ({
-                                name: `${node.name} - ${index + 1}`,
-                                url: line.trim()
-                            }));
-                            return nodesFromSub;
-                        }
-                    } catch (e) {
-                        console.error(`Failed to fetch or parse subscription ${node.name}:`, e);
-                        return [];
-                    }
+                    // 如果是http订阅，暂时跳过
+                    console.log(`DEBUG: Skipping remote subscription: ${node.name}`);
+                    return []; 
                 } else {
-                    return [node];
+                    // 如果是手动节点，正常处理
+                    return [node]; 
                 }
-                return [];
             });
-
             const allResolvedNodesNested = await Promise.all(processingPromises);
             resolvedNodes = allResolvedNodesNested.flat();
-
-            // --- 【修改】根据输出格式调用不同的构建函数 ---
-                let outputConfig = '';
-                let contentType = 'text/plain; charset=utf-8';
-                let fileExtension = 'txt';
-
-                if (targetProfile.outputFormat === 'V2Ray') {
-                    outputConfig = buildV2rayConfig(resolvedNodes);
-                    contentType = 'application/json; charset=utf-8';
-                    fileExtension = 'json';
-                } else { // 默认为 Clash
-                    outputConfig = buildClashConfig(resolvedNodes, targetProfile, remoteConfigContent);
-                    fileExtension = 'yaml';
-                }
-
+            // 如果处理后没有任何节点，返回提示信息而不是空白页
+            if (resolvedNodes.length === 0) {
+                return new Response(`// No nodes could be resolved for this profile. Please check if it contains valid manual nodes.`, {
+                    status: 200, // 返回200 OK，但内容是注释
+                    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                });
+            } 
+            let outputConfig = '';
+            let contentType = 'text/plain; charset=utf-8';
+            let fileExtension = 'txt';
+            if (targetProfile.outputFormat === 'V2Ray') {
+                outputConfig = buildV2rayConfig(resolvedNodes);
+                contentType = 'application/json; charset=utf-8';
+                fileExtension = 'json';
+            } else {
+                outputConfig = buildClashConfig(resolvedNodes, targetProfile, remoteConfigContent);
+                fileExtension = 'yaml';
+            }
+            
             return new Response(outputConfig, {
                 headers: {
-                    'Content-Type': 'text/plain; charset=utf-8',
-                    'Content-Disposition': `attachment; filename="${encodeURIComponent(targetProfile.name)}.yaml"`
+                    'Content-Type': contentType,
+                    'Content-Disposition': `attachment; filename="<span class="math-inline">\{encodeURIComponent\(targetProfile\.name\)\}\.</span>{fileExtension}"`
                 },
             });
-
-        } catch (error) {
+        } catch (error) {  
+            // --- 【调试修改】在返回中打印明确的错误信息 ---
             console.error('Subscription generation failed:', error);
-            return new Response('Failed to generate subscription', { status: 500 });
-        }
+            return new Response(`Backend Error: ${error.stack}`, { status: 500 });   
+        }           
     }
 
     // --- API 路由处理 (需要认证) ---
