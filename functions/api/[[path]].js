@@ -1,5 +1,19 @@
 import yaml from 'js-yaml';
 
+const PREDEFINED_RULES = {
+    block_ads: [
+        'DOMAIN-KEYWORD,ad,REJECT',
+        'DOMAIN-SUFFIX,ad.com,REJECT',
+        'DOMAIN-KEYWORD,advertisement,REJECT',
+        // ... 可在此处添加更多广告拦截规则
+    ],
+    bypass_cn: [
+        'GEOIP,CN,DIRECT',
+        'GEOSITE,CN,DIRECT',
+        // ... 可在此处添加更多大陆直连规则
+    ]
+};
+
 // --- KV 存储的 Key ---
 const KV_KEY_NODES = 'prosub_nodes_v1';
 const KV_KEY_PROFILES = 'prosub_profiles_v1';
@@ -154,12 +168,19 @@ function parseNodeToClashProxy(node) {
  * @param {string|null} remoteConfigContent - （新增）远程配置文件的文本内容
  * @returns {string} - YAML 格式的 Clash 配置
  */
-function buildClashConfig(nodes, profile, remoteConfigContent) {
+// 在 functions/api/[[path]].js 文件中，找到并替换 buildClashConfig 函数
+
+function buildClashConfig(nodes, profile) { // 不再需要 remoteConfigContent 参数
     const proxies = nodes.map(parseNodeToClashProxy).filter(Boolean);
     const proxyNames = proxies.map(p => p.name);
 
-    // 基础配置
     let finalConfig = {
+        'port': 7890,
+        'socks-port': 7891,
+        'allow-lan': false,
+        'mode': 'rule',
+        'log-level': 'info',
+        'external-controller': '127.0.0.1:9090',
         'proxies': proxies,
         'proxy-groups': [
             {
@@ -168,35 +189,20 @@ function buildClashConfig(nodes, profile, remoteConfigContent) {
                 proxies: ["DIRECT", "REJECT", ...proxyNames],
             },
         ],
-        'rules': [], // 规则留空，等待合并
+        'rules': [], // 规则初始为空
     };
 
-    // 如果存在远程配置内容，则进行合并
-    if (remoteConfigContent) {
-        try {
-            const remoteConfig = yaml.load(remoteConfigContent);
-            // 使用扩展运算符进行智能合并
-            finalConfig = { ...finalConfig, ...remoteConfig };
-            
-            // 特殊处理 proxy-groups 和 rules，进行追加而不是完全覆盖
-            // 确保我们自己生成的 PROXY 组始终存在
-            if (remoteConfig['proxy-groups']) {
-                finalConfig['proxy-groups'] = [
-                    ...finalConfig['proxy-groups'], 
-                    ...remoteConfig['proxy-groups']
-                ];
+    // 【核心修改】根据用户选择的规则集来添加规则
+    if (profile.selectedRuleSets && Array.isArray(profile.selectedRuleSets)) {
+        let selectedRules = [];
+        profile.selectedRuleSets.forEach(ruleSetId => {
+            if (PREDEFINED_RULES[ruleSetId]) {
+                selectedRules = [...selectedRules, ...PREDEFINED_RULES[ruleSetId]];
             }
-            if (remoteConfig['rules']) {
-                // 将远程规则放在前面
-                finalConfig['rules'] = [
-                    ...remoteConfig['rules'],
-                ];
-            }
-        } catch (e) {
-            console.error("Failed to parse remote config YAML:", e);
-        }
+        });
+        finalConfig.rules = selectedRules;
     }
-    
+
     // 始终在规则列表末尾添加 MATCH 规则，确保全覆盖
     finalConfig.rules.push('MATCH,🚀 PROXY');
 
@@ -382,7 +388,7 @@ export async function onRequest(context) {
                 contentType = 'application/json; charset=utf-8';
                 fileExtension = 'json';
             } else { // 默认为 Clash
-                outputConfig = buildClashConfig(resolvedNodes, targetProfile, remoteConfigContent);
+                outputConfig = buildClashConfig(resolvedNodes, targetProfile);
                 fileExtension = 'yaml';
             }
             
