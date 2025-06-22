@@ -2,17 +2,15 @@
 import { ref, onMounted, computed } from 'vue';
 import { useToast } from 'vue-toastification';
 
-// --- 状态 ---
 const toast = useToast();
 const nodes = ref([]);
 const profiles = ref([]);
 const isLoading = ref(true);
 
-// 【新增】在前端也定义一份规则集，用于渲染UI
+// 在前端也定义一份规则集，用于渲染UI
 const availableRuleSets = [
     { id: 'bypass_cn', name: '绕过中国大陆' },
     { id: 'block_ads', name: '拦截广告' },
-    // 未来可在这里添加更多选项
 ];
 
 const initialFormState = {
@@ -20,11 +18,10 @@ const initialFormState = {
   name: '',
   outputFormat: 'Clash',
   nodeIds: [],
-  selectedRuleSets: [], // 【修改】字段改为 selectedRuleSets，类型为数组
+  selectedRuleSets: [],
 };
 
 const formProfile = ref({ ...initialFormState });
-
 const isEditing = computed(() => !!formProfile.value.id);
 
 // --- API 调用 ---
@@ -49,8 +46,7 @@ async function fetchData() {
 async function saveData(data) {
   const resource = isEditing.value ? `profiles/${formProfile.value.id}` : 'profiles';
   const method = isEditing.value ? 'PUT' : 'POST';
-  // 在新增时，body是整个列表；在编辑时，body是单个项目
-  const body = isEditing.value ? data : [...profiles.value, data]; 
+  const body = isEditing.value ? data : [...profiles.value, data];
 
   try {
     const response = await fetch(`/api/${resource}`, {
@@ -59,13 +55,13 @@ async function saveData(data) {
       body: JSON.stringify(body)
     });
     if (!response.ok) {
-        const errData = await response.json();
+        const errData = await response.json().catch(() => ({ error: '保存配置失败' }));
         throw new Error(errData.error || '保存配置失败');
     }
     return true;
   } catch (error) {
     console.error('保存配置失败:', error);
-    toast.error(error.message || '保存配置失败');
+    toast.error(error.message);
     return false;
   }
 }
@@ -75,11 +71,9 @@ async function saveProfile() {
     toast.warning('配置名称不能为空，且至少要选择一个节点。');
     return;
   }
-
-  // 注意：表单数据中已经包含了 selectedRuleSets 数组，无需额外处理
   const profileData = isEditing.value ? formProfile.value : { ...formProfile.value, id: crypto.randomUUID() };
   const success = await saveData(profileData);
-
+  
   if (success) {
     toast.success(isEditing.value ? '配置更新成功！' : '配置创建成功！');
     resetForm();
@@ -106,7 +100,10 @@ async function deleteProfile(id) {
 
 // --- 表单与工具方法 ---
 function startEditProfile(profile) {
-  formProfile.value = { ...profile, selectedRuleSets: profile.selectedRuleSets || [] };
+  formProfile.value = { 
+      ...profile, 
+      selectedRuleSets: profile.selectedRuleSets || [] 
+  };
   const formElement = document.getElementById('profile-form');
   if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
 }
@@ -126,6 +123,29 @@ onMounted(fetchData);
 
 <template>
   <div class="view-container">
+    <div class="card">
+      <h2>输出配置 (Profiles)</h2>
+      <p class="card-description">在这里组合您的节点，生成可在客户端中使用的最终订阅链接。</p>
+      <div v-if="isLoading">正在加载...</div>
+      <ul v-else-if="profiles.length > 0" class="item-list">
+        <li v-for="profile in profiles" :key="profile.id">
+          <div class="profile-content">
+            <div class="profile-details">
+              <strong>{{ profile.name }}</strong>
+              <span>格式: {{ profile.outputFormat }}</span>
+            </div>
+            <input class="link-input" :value="getSubscriptionLink(profile.id)" readonly />
+          </div>
+          <div class="item-actions">
+            <button @click="copyLink(getSubscriptionLink(profile.id))" class="btn-success">复制</button>
+            <button @click="startEditProfile(profile)" class="btn-warning">编辑</button>
+            <button @click="deleteProfile(profile.id)" class="btn-danger">删除</button>
+          </div>
+        </li>
+      </ul>
+      <div v-else class="empty-state">暂无输出配置。</div>
+    </div>
+
     <div class="card" id="profile-form">
       <h2>{{ isEditing ? '编辑输出配置' : '创建新输出配置' }}</h2>
       <form @submit.prevent="saveProfile">
@@ -134,7 +154,7 @@ onMounted(fetchData);
           <option>Clash</option>
           <option>V2Ray</option>
         </select>
-
+        
         <fieldset>
             <legend>选择内置Clash规则集:</legend>
             <div class="checkbox-grid">
@@ -147,7 +167,14 @@ onMounted(fetchData);
 
         <fieldset>
             <legend>选择要包含的节点:</legend>
-            </fieldset>
+            <div v-if="nodes.length > 0" class="checkbox-grid">
+                <div v-for="node in nodes" :key="node.id" class="checkbox-item">
+                  <input type="checkbox" :id="`node-sel-${node.id}`" :value="node.id" v-model="formProfile.nodeIds">
+                  <label :for="`node-sel-${node.id}`">{{ node.name }}</label>
+                </div>
+            </div>
+            <p v-else class="empty-state-small">请先在“节点管理”页面中添加节点。</p>
+        </fieldset>
 
         <div class="form-actions">
             <button type="submit" :disabled="!formProfile.name || formProfile.nodeIds.length === 0">{{ isEditing ? '更新配置' : '创建配置' }}</button>
@@ -159,11 +186,11 @@ onMounted(fetchData);
 </template>
 
 <style scoped>
-/* ... 其他样式保持不变，主要修改与列表项布局相关的CSS ... */
+/* 保持所有CSS样式与上一版本一致即可 */
 .view-container { max-width: 1024px; margin: 0 auto; }
 .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
-h2 { margin-top: 0; margin-bottom: 1rem; }
 .card-description { font-size: 0.9rem; color: #666; margin-top: -0.5rem; margin-bottom: 1.5rem; }
+h2 { margin-top: 0; margin-bottom: 1rem; }
 form { display: flex; flex-direction: column; gap: 1rem; }
 input, select { padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
 .form-actions { display: flex; gap: 1rem; }
@@ -171,55 +198,24 @@ button { padding: 0.75rem 1rem; color: white; border: none; border-radius: 4px; 
 button:hover { opacity: 0.9; }
 button:disabled { background-color: #ccc; cursor: not-allowed; }
 button[type="submit"] { background-color: #007bff; }
-.empty-state { text-align: center; padding: 2rem; color: #888; }
-fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 4px; margin-top: 0.5rem; }
-legend { padding: 0 0.5rem; font-weight: bold; }
-.checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
-.checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
 
-/* 【布局修改】 */
 .item-list { list-style: none; padding: 0; }
-li {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end; /* 将 center 修改为 flex-end */
-  gap: 1.5rem;
-  padding: 1.5rem;
-  border-bottom: 1px solid #eee;
-}
+li { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; padding: 1.5rem; border-bottom: 1px solid #eee; }
 li:last-child { border-bottom: none; }
-
-.profile-content {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.profile-details {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
+.profile-content { flex-grow: 1; display: flex; flex-direction: column; gap: 0.75rem; }
+.profile-details { display: flex; align-items: center; gap: 1rem; }
 .profile-details strong { font-size: 1.1rem; }
 .profile-details span { font-size: 0.85rem; color: #666; background-color: #f0f0f0; padding: 0.2rem 0.5rem; border-radius: 4px;}
-
-.link-input { /* 从 link-wrapper 中解放出来的 input */
-    width: 100%;
-    background-color: #e9ecef; 
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 0.5rem; 
-    font-family: monospace; 
-    font-size: 0.85rem;
-}
-
-.item-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
+.link-input { width: 100%; background-color: #e9ecef; border: 1px solid #ccc; border-radius: 4px; padding: 0.5rem; font-family: monospace; font-size: 0.85rem; }
+.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 .btn-danger { background-color: #dc3545; }
 .btn-success { background-color: #28a745; }
 .btn-warning { background-color: #ffc107; color: #212529; }
 .btn-secondary { background-color: #6c757d; }
+.empty-state { text-align: center; padding: 2rem; color: #888; }
+.empty-state-small { font-size: 0.9rem; color: #888; margin: 0; }
+fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 4px; margin-top: 0.5rem; }
+legend { padding: 0 0.5rem; font-weight: bold; }
+.checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
+.checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
 </style>
