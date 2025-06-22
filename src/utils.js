@@ -6,34 +6,48 @@
  * @returns {object|null} - 包含协议、地址、端口等信息的对象，或解析失败时返回null
  */
 export function parseNodeUrl(url) {
-    if (!url) return null;
+    if (!url || typeof url !== 'string') return null;
+    url = url.trim();
+
     try {
-        const parsedUrl = new URL(url);
-        const protocol = parsedUrl.protocol.replace(':', '');
-        
-        // 【关键】确保能解析出 remark/fragment
-        const remark = decodeURIComponent(parsedUrl.hash.substring(1));
+        // 1. 优先手动解析出协议头和 # 后面的备注
+        const hashIndex = url.indexOf('#');
+        const remark = hashIndex !== -1 ? decodeURIComponent(url.substring(hashIndex + 1)).trim() : '';
+
+        const protocolEndIndex = url.indexOf('://');
+        if (protocolEndIndex === -1) return { protocol: 'unknown', name: remark || '未知链接', remark };
+
+        const protocol = url.substring(0, protocolEndIndex);
 
         let details = {
             protocol,
-            name: remark || '未命名', // 优先使用remark作为name
+            name: remark || '未命名', // 默认使用 # 后面的备注作为名称
             remark: remark,
         };
 
+        // 2. 根据不同协议进行精细化解析
         switch (protocol) {
             case 'vmess': {
-                const decoded = JSON.parse(atob(parsedUrl.hostname));
+                const mainPart = url.substring(protocolEndIndex + 3, hashIndex > -1 ? hashIndex : undefined);
+                const decoded = JSON.parse(atob(mainPart));
+                // 如果vmess链接内部有 "ps" 字段，优先使用它作为节点名称
+                if (decoded.ps) {
+                    details.name = decoded.ps.trim();
+                }
                 details = { ...details, ...decoded, address: decoded.add };
                 break;
             }
             case 'vless':
-            case 'trojan': {
-                details.address = parsedUrl.hostname;
-                details.port = parsedUrl.port;
-                details.uuid = parsedUrl.username; // for vless
-                details.password = parsedUrl.username; // for trojan
-                details.sni = parsedUrl.searchParams.get('sni');
-                details.network = parsedUrl.searchParams.get('type');
+            case 'trojan':
+            case 'hysteria2': { // 将 hysteria2 加入标准解析流程
+                // 使用 http 协议头来辅助 new URL() 解析
+                const tempUrl = new URL('http' + url.substring(protocolEndIndex));
+                details.address = tempUrl.hostname;
+                details.port = tempUrl.port;
+                details.uuid = tempUrl.username; // for vless
+                details.password = tempUrl.username; // for trojan & hysteria2
+                details.sni = tempUrl.searchParams.get('sni');
+                // ... 可根据需要解析更多参数
                 break;
             }
             case 'ss': {
@@ -59,15 +73,19 @@ export function parseNodeUrl(url) {
             }
             default:
                 if (url.startsWith('http')) {
+                    const httpUrl = new URL(url);
                     details.type = 'Subscription';
-                    details.url = url;
+                    details.name = remark || httpUrl.hostname;
                 } else {
-                     return { protocol: 'unknown', name: '无法解析的链接', url };
+                     details.name = remark || '未知链接';
                 }
         }
         return details;
     } catch (e) {
-        console.error('Parsing node URL failed:', e);
-        return { protocol: 'error', name: '解析失败', url };
+        console.error('解析节点URL失败:', e);
+        // 即使解析失败，也尝试返回基础信息
+        const hashIndex = url.indexOf('#');
+        const remark = hashIndex !== -1 ? decodeURIComponent(url.substring(hashIndex + 1)).trim() : '解析失败的链接';
+        return { protocol: 'error', name: remark, url };
     }
 }
