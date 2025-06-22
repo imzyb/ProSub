@@ -9,15 +9,12 @@ import Spinner from '../components/Spinner.vue';
 
 const toast = useToast();
 
-// 控制模态框和加载状态
 const showEditorModal = ref(false);
 const nodeToEdit = ref(null);
 const showDetailModal = ref(false);
 const selectedNodeForDetail = ref(null);
 const isSavingNode = ref(false);
 const deletingNodeId = ref(null);
-
-//【已清理】所有与分页相关的 ref (如 currentPage, paginatedNodes) 已被彻底移除
 
 async function handleSaveNode(nodeData) {
   isSavingNode.value = true;
@@ -27,10 +24,8 @@ async function handleSaveNode(nodeData) {
       toast.warning('名称和URL不能为空');
       return;
     }
-
     const headers = { 'Content-Type': 'application/json' };
     let response;
-
     if (isEditing) {
       response = await fetch(`/api/nodes/${nodeData.id}`, {
         method: 'PUT',
@@ -45,7 +40,6 @@ async function handleSaveNode(nodeData) {
         body: JSON.stringify([...store.nodes, newNode]),
       });
     }
-
     if (!response.ok) throw new Error('保存节点失败');
     toast.success(isEditing ? '节点更新成功！' : '节点添加成功！');
     showEditorModal.value = false;
@@ -99,14 +93,6 @@ function closeDetailModal() {
 </script>
 
 <template>
-  <div style="background: #ffc; padding: 1rem; border: 2px solid red; margin-bottom: 2rem;">
-    <h3>-- 调试信息 --</h3>
-    <p>store.nodes 数组中的项目数量: <strong>{{ store.nodes.length }}</strong></p>
-    <p>所有节点名称:</p>
-    <pre>{{ JSON.stringify(store.nodes.map(n => n.name), null, 2) }}</pre>
-  </div>
-  <div class="view-container">
-    </div>
   <div class="view-container">
     <div class="card">
       <div class="card-header">
