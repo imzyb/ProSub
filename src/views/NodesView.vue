@@ -102,16 +102,9 @@ function closeDetailModal() {
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       <hr />
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
-      
-      <RecycleScroller
-        v-else-if="store.nodes.length > 0"
-        class="scroller"
-        :items="store.nodes"
-        :item-size="65"
-        key-field="id"
-        v-slot="{ item }"
-      >
-        <div class="node-item">
+
+      <ul v-else-if="store.nodes.length > 0" class="scroller">
+        <li v-for="item in store.nodes" :key="item.id" class="node-item">
           <span class="item-name"><strong>{{ item.name }}</strong></span>
           <div class="item-actions">
             <button @click="openEditModal(item)" class="btn-warning">编辑</button>
@@ -121,9 +114,9 @@ function closeDetailModal() {
               <span v-else>删除</span>
             </button>
           </div>
-        </div>
-      </RecycleScroller>
-      
+        </li>
+      </ul>
+
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
