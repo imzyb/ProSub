@@ -1,18 +1,24 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useToast } from 'vue-toastification';
 
+const toast = useToast();
 const nodes = ref([]);
 const profiles = ref([]);
 const fileInput = ref(null);
 
 async function fetchData() {
-    // 备份/恢复需要全部数据
-    const [nodesRes, profilesRes] = await Promise.all([
-      fetch('/api/nodes'),
-      fetch('/api/profiles')
-    ]);
-    nodes.value = await nodesRes.json();
-    profiles.value = await profilesRes.json();
+    try {
+        const [nodesRes, profilesRes] = await Promise.all([
+          fetch('/api/nodes'),
+          fetch('/api/profiles')
+        ]);
+        if (!nodesRes.ok || !profilesRes.ok) throw new Error('获取备份数据失败');
+        nodes.value = await nodesRes.json();
+        profiles.value = await profilesRes.json();
+    } catch (e) {
+        toast.error(e.message);
+    }
 }
 
 async function saveData(resource, data) {
@@ -25,14 +31,14 @@ async function saveData(resource, data) {
         if (!response.ok) throw new Error(`保存 ${resource} 失败`);
         return true;
     } catch (error) {
-        alert(`保存 ${resource} 失败`);
+        toast.error(`保存 ${resource} 失败`);
         return false;
     }
 }
 
 function backupData() {
   if (nodes.value.length === 0 && profiles.value.length === 0) {
-    alert('没有数据可备份。');
+    toast.info('没有数据可备份。');
     return;
   }
   const backupObject = { nodes: nodes.value, profiles: profiles.value, timestamp: new Date().toISOString() };
@@ -44,6 +50,7 @@ function backupData() {
   a.download = `prosub_backup_${new Date().toISOString().split('T')[0]}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  toast.success('备份文件已开始下载！');
 }
 
 function triggerFileUpload() {
@@ -65,11 +72,11 @@ function handleFileSelect(event) {
       const nodesSaved = await saveData('nodes', restoredData.nodes);
       const profilesSaved = await saveData('profiles', restoredData.profiles);
       if (nodesSaved && profilesSaved) {
-        alert('数据恢复成功！');
-        fetchData(); // 刷新数据
+        toast.success('数据恢复成功！');
+        await fetchData(); // 刷新当前页面的数据
       }
     } catch (error) {
-      alert(`恢复失败: ${error.message}`);
+      toast.error(`恢复失败: ${error.message}`);
     } finally {
       event.target.value = '';
     }

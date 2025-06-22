@@ -1,7 +1,10 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'; // 删除了 watch
+import { ref, onMounted, computed } from 'vue';
+import { useToast } from 'vue-toastification'; // 【新增】导入 useToast
 import { parseNodeUrl } from '../utils.js';
 import NodeDetailModal from '../components/NodeDetailModal.vue';
+
+const toast = useToast(); // 【新增】获取 toast 实例
 
 const nodes = ref([]);
 const isLoading = ref(true);
@@ -25,7 +28,7 @@ async function fetchNodes() {
     nodes.value = await response.json();
   } catch (error) {
     console.error('获取节点失败:', error);
-    alert('加载节点列表失败');
+    toast.error('加载节点列表失败'); // 【修改】替换 alert
   } finally {
     isLoading.value = false;
   }
@@ -33,7 +36,7 @@ async function fetchNodes() {
 
 async function saveNode() {
   if (!formNode.value.name.trim() || !formNode.value.url.trim()) {
-    alert('名称和URL不能为空');
+    toast.warning('名称和URL不能为空'); // 【修改】替换 alert
     return;
   }
 
@@ -61,10 +64,10 @@ async function saveNode() {
 
     resetForm();
     await fetchNodes(); // 重新获取列表以刷新UI
-
+    toast.error('保存节点失败'); // 【修改】替换 alert
   } catch (error) {
      console.error('保存节点失败:', error);
-     alert('保存节点失败');
+     toast.error('保存节点失败'); // 【修改】替换 alert
   }
 }
 
@@ -79,8 +82,9 @@ async function deleteNode(id) {
     });
     if (!response.ok) throw new Error('删除节点失败');
     await fetchNodes();
+    toast.success('节点删除成功！'); // 【新增】成功提示
   } catch(e) {
-    alert('删除节点失败');
+    toast.error('删除节点失败'); // 【修改】替换 alert
   }
 }
 

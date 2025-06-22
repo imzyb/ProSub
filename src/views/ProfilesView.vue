@@ -1,9 +1,9 @@
 <script setup>
-// The <script setup> section remains exactly the same as the previous version.
-// For brevity, it is not repeated here. Please keep your existing <script setup> block.
 import { ref, onMounted, computed } from 'vue';
+import { useToast } from 'vue-toastification';
 
 // --- 状态 ---
+const toast = useToast();
 const nodes = ref([]);
 const profiles = ref([]);
 const isLoading = ref(true);
@@ -31,7 +31,7 @@ async function fetchData() {
     profiles.value = await profilesRes.json();
   } catch (error) {
     console.error('获取数据失败:', error);
-    alert('加载数据列表失败');
+    toast.error('加载数据列表失败');
   } finally {
     isLoading.value = false;
   }
@@ -40,7 +40,8 @@ async function fetchData() {
 async function saveData(data) {
   const resource = isEditing.value ? `profiles/${formProfile.value.id}` : 'profiles';
   const method = isEditing.value ? 'PUT' : 'POST';
-  const body = isEditing.value ? data : [...profiles.value, data];
+  // 在新增时，body是整个列表；在编辑时，body是单个项目
+  const body = isEditing.value ? data : [...profiles.value, data]; 
 
   try {
     const response = await fetch(`/api/${resource}`, {
@@ -48,18 +49,21 @@ async function saveData(data) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    if (!response.ok) throw new Error('保存配置失败');
+    if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || '保存配置失败');
+    }
     return true;
   } catch (error) {
     console.error('保存配置失败:', error);
-    alert('保存配置失败');
+    toast.error(error.message || '保存配置失败');
     return false;
   }
 }
 
 async function saveProfile() {
   if (!formProfile.value.name.trim() || formProfile.value.nodeIds.length === 0) {
-    alert('配置名称不能为空，且至少要选择一个节点。');
+    toast.warning('配置名称不能为空，且至少要选择一个节点。');
     return;
   }
 
@@ -67,6 +71,7 @@ async function saveProfile() {
   const success = await saveData(profileData);
   
   if (success) {
+    toast.success(isEditing.value ? '配置更新成功！' : '配置创建成功！');
     resetForm();
     await fetchData();
   }
@@ -82,9 +87,10 @@ async function deleteProfile(id) {
           body: JSON.stringify(updatedProfiles)
       });
       if (!response.ok) throw new Error('删除配置失败');
+      toast.success('配置删除成功！');
       await fetchData();
   } catch (e) {
-      alert('删除配置失败');
+      toast.error(e.message || '删除配置失败');
   }
 }
 
@@ -101,10 +107,10 @@ function resetForm() {
   formProfile.value = { id: null, name: '', outputFormat: 'Clash', remoteConfig: '', nodeIds: [] };
 }
 
-// 正确的版本
 const getSubscriptionLink = (profileId) => `${window.location.origin}/api/subscribe/${profileId}`;
+
 function copyLink(link) {
-  navigator.clipboard.writeText(link).then(() => alert('链接已复制到剪贴板！'));
+  navigator.clipboard.writeText(link).then(() => toast.success('链接已复制到剪贴板！'));
 }
 
 onMounted(fetchData);
