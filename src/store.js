@@ -10,7 +10,9 @@ export const store = reactive({
   profiles: [],
   isLoading: true,
   error: null,
+  isActionLoading: false, // 【新增】控制全局操作加载状态
 
+  
   // 创建一个方法来统一获取所有初始数据
   async fetchData() {
     this.isLoading = true;

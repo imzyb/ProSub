@@ -2,6 +2,8 @@
 import { ref, onMounted } from 'vue';
 import { RouterView } from 'vue-router';
 import LoginView from './views/LoginView.vue';
+import LoadingOverlay from './components/LoadingOverlay.vue';
+import { store } from './store.js';
 
 // 会话状态: loading (检查中), loggedIn (已登录), loggedOut (未登录)
 const sessionState = ref('loading');
@@ -37,13 +39,7 @@ onMounted(() => {
 
 <template>
   <div class="app-container">
-    <div v-if="sessionState === 'loading'" class="loading-screen">
-      <p>正在连接服务器...</p>
-    </div>
-
-    <RouterView v-else-if="sessionState === 'loggedIn'" />
-
-    <LoginView v-else :on-login-success="handleLoginSuccess" />
+    <LoadingOverlay :show="store.isActionLoading" />
   </div>
 </template>
 

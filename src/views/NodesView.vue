@@ -62,6 +62,7 @@ async function handleBatchSave(urls) {
 
 async function deleteNode(id) {
   if (deletingNodeId.value || !confirm('确定要删除这个节点吗？')) return;
+  store.isActionLoading = true; // 【修改】开始操作，显示遮罩
   deletingNodeId.value = id;
   try {
     const updatedNodes = store.nodes.filter(n => n.id !== id);
@@ -73,6 +74,7 @@ async function deleteNode(id) {
     toast.error('删除节点失败');
   } finally {
     deletingNodeId.value = null;
+    store.isActionLoading = false; // 【修改】操作结束，隐藏遮罩
   }
 }
 
@@ -109,13 +111,20 @@ function closeDetailModal() { showDetailModal.value = false; }
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
-      <ul v-else-if="store.nodes.length > 0" class="node-list">
-        <li v-for="item in store.nodes" :key="item.id" class="node-item">
+      <RecycleScroller
+        v-else-if="store.nodes.length > 0"
+        class="scroller"
+        :items="store.nodes"
+        :item-size="61" 
+        key-field="id"
+        v-slot="{ item }"
+      >
+        <div class="node-item">
           <div class="item-info">
-            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
-              {{ getProtocolInfo(item.url).text }}
-            </span>
-            <strong>{{ item.name }}</strong>
+              <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
+                {{ getProtocolInfo(item.url).text }}
+              </span>
+              <strong>{{ item.name }}</strong>
           </div>
           <div class="item-actions">
             <button @click="openEditModal(item)" class="btn-warning">编辑</button>
@@ -125,8 +134,8 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </li>
-      </ul>
+        </div>
+      </RecycleScroller>
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
@@ -169,5 +178,17 @@ button:disabled { cursor: not-allowed; opacity: 0.7; }
     .item-info { padding-right: 0; }
     .item-actions { justify-content: flex-end; border-top: 1px solid #eee; padding-top: 0.75rem; }
     .card-header { flex-direction: column; align-items: stretch; gap: 1rem; }
+}
+.scroller { 
+  height: 60vh; /* 使用视窗高度，更灵活 */
+  overflow-y: auto; 
+}
+.node-item { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 1rem; 
+  border-bottom: 1px solid #eee; 
+  height: 61px; /* 关键：这个高度必须与 :item-size 精确匹配 */
 }
 </style>

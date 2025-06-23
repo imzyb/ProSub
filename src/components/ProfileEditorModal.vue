@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
+import Spinner from './Spinner.vue'; // 引入Spinner组件
 
 const props = defineProps({
   show: Boolean,
@@ -61,7 +62,8 @@ function invertSelectionNodes() {
 function handleSubmit() {
   if (props.isSaving) return;
   emit('save', formData.value);
-  emit('close');
+  // 不再在这里关闭模态框，由父组件在保存成功后控制
+  // emit('close');
 }
 </script>
 
@@ -100,7 +102,7 @@ function handleSubmit() {
             <button type="button" @click="selectAllNodes" class="btn-link">全选</button>
             <button type="button" @click="invertSelectionNodes" class="btn-link">反选</button>
           </div>
-          <div v-if="nodes.length > 0" class="checkbox-grid node-selection">
+          <div v-if="nodes && nodes.length > 0" class="checkbox-grid node-selection">
             <div v-for="node in nodes" :key="node.id" class="checkbox-item">
               <input type="checkbox" :id="`modal-node-sel-${node.id}`" :value="node.id" v-model="formData.nodeIds">
               <label :for="`modal-node-sel-${node.id}`">{{ node.name }}</label>
@@ -121,10 +123,20 @@ function handleSubmit() {
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal-content { background: white; padding: 2rem; border-radius: 8px; width: 90%; max-width: 700px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+.modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+.modal-content { 
+  background: white; padding: 2rem; border-radius: 8px; 
+  width: 100%; max-width: 700px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  max-height: 90vh; /* 设定最大高度 */
+  display: flex;
+  flex-direction: column;
+}
 h3 { margin-top: 0; margin-bottom: 1.5rem; }
-form { display: flex; flex-direction: column; gap: 1rem; }
+form { 
+  display: flex; flex-direction: column; gap: 1.5rem; 
+  overflow-y: auto; /* 让表单内容在超出时可以滚动 */
+  padding-right: 0.5rem; /* 为滚动条留出空间 */
+}
 .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
 .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; }
 fieldset { border: 1px solid #ccc; padding: 1rem; border-radius: 4px; }
@@ -132,9 +144,24 @@ legend { padding: 0 0.5rem; font-weight: bold; }
 .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.8rem; }
 .node-selection { max-height: 200px; overflow-y: auto; }
 .checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; flex-shrink: 0; }
 .btn-primary { background-color: #007bff; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; min-width: 80px; }
 .btn-secondary { background-color: #6c757d; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.7; }
 .selection-actions { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
 .btn-link { background: none; border: none; color: #007bff; cursor: pointer; padding: 0; font-size: 0.85rem; }
+
+/* 【核心修正】手机端的响应式样式 */
+@media (max-width: 768px) {
+  .modal-content {
+    padding: 1rem;
+  }
+  form {
+    gap: 1rem;
+  }
+  .checkbox-grid {
+    /* 在小屏幕，强制网格变为单列 */
+    grid-template-columns: 1fr;
+  }
+}
 </style>
