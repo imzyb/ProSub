@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue'; // 【核心修正】在这里加入了 ref
 import { RouterView } from 'vue-router';
 import LoginView from './views/LoginView.vue';
 import LoadingOverlay from './components/LoadingOverlay.vue';
@@ -8,11 +8,12 @@ import { useToast } from 'vue-toastification';
 
 const toast = useToast();
 
+// 这个 ref 函数现在可以被正确识别了
 const sessionState = ref('loading');
 
 async function checkSession() {
   try {
-    const response = await fetch('/api/nodes');
+    const response = await fetch('/api/nodes'); 
     if (response.ok) {
       sessionState.value = 'loggedIn';
     } else {
@@ -27,7 +28,9 @@ function handleLoginSuccess() {
   sessionState.value = 'loggedIn';
 }
 
-onMounted(checkSession);
+onMounted(() => {
+  checkSession();
+});
 </script>
 
 <template>
@@ -35,7 +38,9 @@ onMounted(checkSession);
     <div v-if="sessionState === 'loading'" class="loading-screen">
       <p>正在连接服务器...</p>
     </div>
+
     <RouterView v-else-if="sessionState === 'loggedIn'" />
+    
     <LoginView v-else :on-login-success="handleLoginSuccess" />
     
     <LoadingOverlay :show="store.isActionLoading" />
@@ -43,6 +48,16 @@ onMounted(checkSession);
 </template>
 
 <style scoped>
-.app-container { min-height: 100vh; }
-.loading-screen { display: flex; align-items: center; justify-content: center; height: 100vh; font-size: 1.2rem; color: #888; }
+.app-container {
+  min-height: 100vh;
+  background-color: #f0f2f5;
+}
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 1.2rem;
+  color: #888;
+}
 </style>
