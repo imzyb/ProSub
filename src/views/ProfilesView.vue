@@ -1,49 +1,45 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
 import ProfileEditorModal from '../components/ProfileEditorModal.vue';
+import Spinner from '../components/Spinner.vue';
 
 const toast = useToast();
 const showEditorModal = ref(false);
 const profileToEdit = ref(null);
+const isSavingProfile = ref(false);
+const deletingProfileId = ref(null);
 
 async function handleSaveProfile(formData) {
-  const isEditing = !!formData.id;
-  
-  if (!formData.name.trim() || formData.nodeIds.length === 0) {
-    toast.warning('配置名称不能为空，且至少要选择一个节点。');
-    return;
-  }
-  
-  // 自定义规则功能已移除，确保字段为空数组
-  const profileData = {
-      ...formData,
-      userCustomRules: [], 
-  };
-
-  if (!isEditing) {
-      profileData.id = crypto.randomUUID();
-  }
-  
-  const resource = isEditing ? `profiles/${profileData.id}` : 'profiles';
-  const method = isEditing ? 'PUT' : 'POST';
-  const body = isEditing ? profileData : [...store.profiles, profileData];
-
+  isSavingProfile.value = true;
   try {
+    const isEditing = !!formData.id;
+    if (!formData.name.trim() || formData.nodeIds.length === 0) {
+      toast.warning('配置名称不能为空，且至少要选择一个节点。'); return;
+    }
+    const profileData = isEditing ? { ...formData } : { ...formData, id: crypto.randomUUID() };
+    const resource = isEditing ? `profiles/${profileData.id}` : 'profiles';
+    const method = isEditing ? 'PUT' : 'POST';
+    const body = isEditing ? profileData : [...store.profiles, profileData];
+
     const response = await fetch(`/api/${resource}`, {
       method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
     if (!response.ok) throw new Error('保存配置失败');
     toast.success(isEditing ? '配置更新成功！' : '配置创建成功！');
+    showEditorModal.value = false;
     await store.fetchData();
   } catch (error) {
     toast.error('保存配置失败');
+  } finally {
+    isSavingProfile.value = false;
   }
 }
 
 async function deleteProfile(id) {
-  if (!confirm('确定要删除这个输出配置吗？')) return;
+  if (deletingProfileId.value || !confirm('确定要删除这个输出配置吗？')) return;
+  deletingProfileId.value = id;
   try {
     const updatedProfiles = store.profiles.filter(p => p.id !== id);
     const response = await fetch('/api/profiles', {
@@ -54,6 +50,8 @@ async function deleteProfile(id) {
     await store.fetchData();
   } catch (e) {
     toast.error('删除配置失败');
+  } finally {
+    deletingProfileId.value = null;
   }
 }
 
@@ -61,15 +59,11 @@ function openAddModal() {
   profileToEdit.value = null;
   showEditorModal.value = true;
 }
-
 function openEditModal(profile) {
   profileToEdit.value = { ...profile };
   showEditorModal.value = true;
 }
-
-// 【最终修正】确保此函数是纯净的 JavaScript
 const getSubscriptionLink = (profileId) => `${window.location.origin}/api/subscribe/${profileId}`;
-
 function copyLink(link) {
   navigator.clipboard.writeText(link).then(() => toast.success('链接已复制到剪贴板！'));
 }
@@ -97,7 +91,10 @@ function copyLink(link) {
           <div class="item-actions">
             <button @click="copyLink(getSubscriptionLink(profile.id))" class="btn-success">复制</button>
             <button @click="openEditModal(profile)" class="btn-warning">编辑</button>
-            <button @click="deleteProfile(profile.id)" class="btn-danger">删除</button>
+            <button @click="deleteProfile(profile.id)" class="btn-danger" :disabled="deletingProfileId === profile.id">
+              <Spinner v-if="deletingProfileId === profile.id" />
+              <span v-else>删除</span>
+            </button>
           </div>
         </li>
       </ul>
@@ -108,6 +105,7 @@ function copyLink(link) {
       :show="showEditorModal"
       :profile="profileToEdit"
       :nodes="store.nodes"
+      :is-saving="isSavingProfile"
       @close="showEditorModal = false"
       @save="handleSaveProfile"
     />

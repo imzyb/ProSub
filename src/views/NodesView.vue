@@ -44,7 +44,6 @@ async function handleSaveNode(nodeData) {
 }
 
 async function handleBatchSave(urls) {
-    isSavingNode.value = true;
     try {
         const newNodes = urls.map(url => {
             const parsed = parseNodeUrl(url);
@@ -52,18 +51,12 @@ async function handleBatchSave(urls) {
             return { id: crypto.randomUUID(), name, url };
         });
         const updatedNodes = [...store.nodes, ...newNodes];
-        const response = await fetch('/api/nodes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedNodes)
-        });
+        const response = await fetch('/api/nodes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedNodes) });
         if (!response.ok) throw new Error('批量导入失败');
         toast.success(`成功导入 ${newNodes.length} 个新节点！`);
         await store.fetchData();
     } catch(e) {
         toast.error('批量导入失败');
-    } finally {
-        isSavingNode.value = false;
     }
 }
 
@@ -72,9 +65,7 @@ async function deleteNode(id) {
   deletingNodeId.value = id;
   try {
     const updatedNodes = store.nodes.filter(n => n.id !== id);
-    const response = await fetch('/api/nodes', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedNodes),
-    });
+    const response = await fetch('/api/nodes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedNodes) });
     if (!response.ok) throw new Error('删除节点失败');
     toast.success('节点删除成功！');
     await store.fetchData();
@@ -84,37 +75,25 @@ async function deleteNode(id) {
     deletingNodeId.value = null;
   }
 }
-// 【新增】根据协议类型返回显示文本和样式的辅助函数
+
 function getProtocolInfo(nodeUrl) {
     const parsed = parseNodeUrl(nodeUrl);
     const protocol = parsed ? parsed.protocol : 'unknown';
-
     switch (protocol) {
         case 'vmess': return { text: 'VMESS', style: 'protocol-vmess' };
         case 'vless': return { text: 'VLESS', style: 'protocol-vless' };
         case 'trojan': return { text: 'TROJAN', style: 'protocol-trojan' };
         case 'ss': return { text: 'SS', style: 'protocol-ss' };
         case 'hysteria2': return { text: 'HY2', style: 'protocol-hysteria2' };
-        case 'http':
-        case 'https': return { text: 'SUB', style: 'protocol-sub' };
+        case 'http': case 'https': return { text: 'SUB', style: 'protocol-sub' };
         default: return { text: 'LINK', style: 'protocol-unknown' };
     }
 }
-function openAddModal() {
-  nodeToEdit.value = null;
-  showEditorModal.value = true;
-}
-function openEditModal(node) {
-  nodeToEdit.value = { ...node };
-  showEditorModal.value = true;
-}
-function showNodeDetails(node) {
-  selectedNodeForDetail.value = parseNodeUrl(node.url);
-  showDetailModal.value = true;
-}
-function closeDetailModal() {
-  showDetailModal.value = false;
-}
+
+function openAddModal() { nodeToEdit.value = null; showEditorModal.value = true; }
+function openEditModal(node) { nodeToEdit.value = { ...node }; showEditorModal.value = true; }
+function showNodeDetails(node) { selectedNodeForDetail.value = parseNodeUrl(node.url); showDetailModal.value = true; }
+function closeDetailModal() { showDetailModal.value = false; }
 </script>
 
 <template>
@@ -130,7 +109,6 @@ function closeDetailModal() {
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
-      
       <ul v-else-if="store.nodes.length > 0" class="node-list">
         <li v-for="item in store.nodes" :key="item.id" class="node-item">
           <div class="item-info">
@@ -149,7 +127,6 @@ function closeDetailModal() {
           </div>
         </li>
       </ul>
-      
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
@@ -165,59 +142,32 @@ function closeDetailModal() {
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .card-header h2 { margin: 0; }
 .header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
-.card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; border-top: 1px solid #eee; padding-top: 1.5rem; }
+.card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
 .loading-text, .empty-state { text-align: center; padding: 3rem; color: #888; border: 2px dashed #e5e7eb; border-radius: 8px; margin-top: 1rem;}
-
-.node-list { list-style: none; padding: 0; }
-.node-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #eee;
-}
+.node-list { list-style: none; padding: 0; margin-top: 1rem;}
+.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
 .node-item:last-child { border-bottom: none; }
-.item-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  word-break: break-all;
-  padding-right: 1rem;
-}
-.protocol-badge {
-  font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem;
-  border-radius: 9999px; color: white; flex-shrink: 0;
-}
+.item-info { display: flex; align-items: center; gap: 0.75rem; word-break: break-all; padding-right: 1rem; }
 .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-button { padding: 0.5rem 1rem; border-radius: 5px; /* ... */ }
+button { padding: 0.5rem 1rem; border: none; border-radius: 5px; color: white; cursor: pointer; transition: background-color 0.2s; font-weight: 500; }
+button:disabled { cursor: not-allowed; opacity: 0.7; }
+.btn-primary { background-color: #007bff; }
+.btn-secondary { background-color: #6c757d; }
+.btn-danger { background-color: #dc3545; }
+.btn-warning { background-color: #ffc107; color: #212529; }
+.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; }
+.protocol-vmess { background-color: #10b981; color: white; }
+.protocol-vless { background-color: #3b82f6; color: white; }
+.protocol-trojan { background-color: #ef4444; color: white; }
+.protocol-ss { background-color: #f97316; color: white; }
+.protocol-hysteria2 { background-color: #8b5cf6; color: white; }
+.protocol-sub { background-color: #64748b; color: white; }
+.protocol-unknown { background-color: #9ca3af; color: white; }
 
-/* 不同协议的徽章颜色 */
-.protocol-vmess { background-color: #10b981; }
-.protocol-vless { background-color: #3b82f6; }
-.protocol-trojan { background-color: #ef4444; }
-.protocol-ss { background-color: #f97316; }
-.protocol-hysteria2 { background-color: #8b5cf6; }
-.protocol-sub { background-color: #64748b; }
-.protocol-unknown { background-color: #9ca3af; }
-
-/* 【核心修正】手机端的响应式样式 */
 @media (max-width: 768px) {
-    .node-item {
-        flex-direction: column; /* 垂直堆叠 */
-        align-items: stretch; /* 拉伸对齐 */
-        gap: 0.75rem;
-    }
-    .item-info {
-        padding-right: 0;
-    }
-    .item-actions {
-        justify-content: flex-end; /* 按钮靠右 */
-        border-top: 1px solid #eee;
-        padding-top: 0.75rem;
-    }
-    .card-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
+    .node-item { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+    .item-info { padding-right: 0; }
+    .item-actions { justify-content: flex-end; border-top: 1px solid #eee; padding-top: 0.75rem; }
+    .card-header { flex-direction: column; align-items: stretch; gap: 1rem; }
 }
 </style>
