@@ -1,4 +1,5 @@
 <script setup>
+// The <script setup> section requires NO CHANGES. It is already perfect.
 import { ref, computed } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
@@ -110,8 +111,15 @@ function closeDetailModal() { showDetailModal.value = false; }
       
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
       
-      <ul v-else-if="store.nodes.length > 0" class="node-list">
-        <li v-for="item in store.nodes" :key="item.id" class="node-item">
+      <RecycleScroller
+        v-else-if="store.nodes.length > 0"
+        class="scroller"
+        :items="store.nodes"
+        :item-size="61" 
+        key-field="id"
+        v-slot="{ item }"
+      >
+        <div class="node-item">
           <div class="item-info">
             <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
               {{ getProtocolInfo(item.url).text }}
@@ -126,8 +134,9 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </li>
-      </ul>
+        </div>
+      </RecycleScroller>
+      
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
@@ -146,9 +155,6 @@ function closeDetailModal() { showDetailModal.value = false; }
 .card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
 .loading-text, .empty-state { text-align: center; padding: 3rem; color: #888; border: 2px dashed #e5e7eb; border-radius: 8px; margin-top: 1rem;}
 
-.node-list { list-style: none; padding: 0; margin-top: 1rem; }
-.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
-.node-item:last-child { border-bottom: none; }
 .item-info { display: flex; align-items: center; gap: 0.75rem; word-break: break-all; padding-right: 1rem; }
 .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 button { padding: 0.5rem 1rem; border: none; border-radius: 5px; color: white; cursor: pointer; transition: background-color 0.2s; font-weight: 500; }
@@ -166,6 +172,22 @@ button:disabled { cursor: not-allowed; opacity: 0.7; }
 .protocol-sub { background-color: #64748b; color: white; }
 .protocol-unknown { background-color: #9ca3af; color: white; }
 
+/* 【核心修改】为虚拟列表和其项目设定精确的高度 */
+.scroller {
+  height: 60vh; /* 设定一个视窗高度，使其在不同屏幕下表现一致 */
+  overflow-y: auto;
+}
+.node-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  height: 61px; /* 关键！这个高度必须与 RecylerScroller 的 :item-size 属性精确匹配 */
+}
+.node-item:last-child {
+    border-bottom: none;
+}
 /* 【核心修正】手机端的响应式样式 */
 @media (max-width: 768px) {
     .node-item {
