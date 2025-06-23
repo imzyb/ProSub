@@ -70,55 +70,31 @@ function handleSubmit() {
 <template>
   <div v-if="show" class="modal-backdrop" @click="emit('close')">
     <div class="modal-content" @click.stop>
-      <h3>{{ isEditing ? '编辑输出配置' : '新增输出配置' }}</h3>
       <form @submit.prevent="handleSubmit" id="profile-editor-form">
-        <div class="form-group">
-          <label for="profile-name">配置名称</label>
-          <input id="profile-name" v-model="formData.name" type="text" placeholder="例如: 家庭Clash" required/>
-        </div>
-        <div class="form-group">
-          <label for="profile-format">输出格式</label>
-          <select id="profile-format" v-model="formData.outputFormat">
-            <option>Clash</option>
-            <option>V2Ray</option>
-          </select>
-        </div>
         <fieldset>
-          <legend>选择内置Clash规则集</legend>
-          <div class="selection-actions">
-            <button type="button" @click="selectAllRules" class="btn-link">全选</button>
-            <button type="button" @click="invertSelectionRules" class="btn-link">反选</button>
-          </div>
           <div class="checkbox-grid">
-            <div v-for="ruleSet in availableRuleSets" :key="ruleSet.id" class="checkbox-item">
-              <input type="checkbox" :id="`modal-ruleset-${ruleSet.id}`" :value="ruleSet.id" v-model="formData.selectedRuleSets">
-              <label :for="`modal-ruleset-${ruleSet.id}`">{{ ruleSet.name }}</label>
-            </div>
+              <div v-for="ruleSet in availableRuleSets" :key="ruleSet.id" class="checkbox-item">
+                  <input type="checkbox" :id="`modal-ruleset-${ruleSet.id}`" :value="ruleSet.id" v-model="formData.selectedRuleSets">
+                  <label :for="`modal-ruleset-${ruleSet.id}`" class="checkbox-label">{{ ruleSet.name }}</label>
+              </div>
           </div>
         </fieldset>
         <fieldset>
-          <legend>选择要包含的节点</legend>
-          <div class="selection-actions">
-            <button type="button" @click="selectAllNodes" class="btn-link">全选</button>
-            <button type="button" @click="invertSelectionNodes" class="btn-link">反选</button>
-          </div>
           <div v-if="nodes && nodes.length > 0" class="checkbox-grid node-selection">
             <div v-for="node in nodes" :key="node.id" class="checkbox-item">
               <input type="checkbox" :id="`modal-node-sel-${node.id}`" :value="node.id" v-model="formData.nodeIds">
-              <label :for="`modal-node-sel-${node.id}`">{{ node.name }}</label>
+              <label :for="`modal-node-sel-${node.id}`" class="checkbox-label">
+                  <span class="protocol-badge-small" :class="getProtocolInfo(node.url).style">
+                      {{ getProtocolInfo(node.url).text }}
+                  </span>
+                  <span>{{ node.name }}</span>
+              </label>
             </div>
           </div>
-          <p v-else>暂无节点，请先前往“节点管理”页面添加。</p>
+          <p v-else>暂无节点...</p>
         </fieldset>
       </form>
-      <div class="modal-actions">
-        <button @click="emit('close')" class="btn-secondary">取消</button>
-        <button type="submit" form="profile-editor-form" class="btn-primary" :disabled="isSaving">
-            <Spinner v-if="isSaving" />
-            <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
-        </button>
       </div>
-    </div>
   </div>
 </template>
 
@@ -163,5 +139,21 @@ button:disabled { cursor: not-allowed; opacity: 0.7; }
     /* 在小屏幕，强制网格变为单列 */
     grid-template-columns: 1fr;
   }
+}
+.checkbox-item {
+  display: flex;
+  align-items: center; /* 确保 checkbox 和 label 垂直居中 */
+  gap: 0.5rem;
+}
+/* 【核心修正】确保label可以和badge在同一行 */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.protocol-badge-small { font-size: 0.7rem; padding: 0.1rem 0.4rem; /* ... */ }
+@media (max-width: 768px) {
+  /* ... */
+  .checkbox-grid { grid-template-columns: 1fr; } /* 强制单列，防止换行问题 */
 }
 </style>
