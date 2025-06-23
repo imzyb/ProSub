@@ -1,22 +1,20 @@
+// src/store.js
 import { reactive } from 'vue';
-import { useToast } from 'vue-toastification';
 
-const toast = useToast();
-
-// 创建一个响应式的全局对象
 export const store = reactive({
-  // 在这里存放所有需要全局共享的数据
+  // 数据状态
   nodes: [],
   profiles: [],
-  isLoading: true,
-  error: null,
-  isActionLoading: false, // 【新增】控制全局操作加载状态
-
   
-  // 创建一个方法来统一获取所有初始数据
+  // 页面级加载状态 (用于显示“正在加载...”)
+  isInitialLoading: true,
+  
+  // 操作级加载状态 (用于显示全局遮罩)
+  isActionLoading: false,
+
+  // 统一的数据获取方法
   async fetchData() {
-    this.isLoading = true;
-    this.error = null;
+    this.isInitialLoading = true;
     try {
       const [nodesRes, profilesRes] = await Promise.all([
         fetch('/api/nodes'),
@@ -29,15 +27,13 @@ export const store = reactive({
 
       this.nodes = await nodesRes.json();
       this.profiles = await profilesRes.json();
-
+      
     } catch (err) {
-      this.error = err.message;
-      // 使用 toast 进行错误提示，因为 store 中无法直接访问组件上下文
-      // 注意：这里的 toast 可能不会立即生效，但错误会被记录
-      toast.error(err.message || '获取数据时发生未知错误');
+      // 只是抛出错误，让调用它的组件去处理UI提示
       console.error("Failed to fetch data for store:", err);
+      throw err;
     } finally {
-      this.isLoading = false;
+      this.isInitialLoading = false;
     }
   },
 });

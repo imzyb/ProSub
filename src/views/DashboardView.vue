@@ -2,9 +2,16 @@
 import { onMounted } from 'vue';
 import { RouterView, RouterLink } from 'vue-router';
 import { store } from '../store.js';
+import { useToast } from 'vue-toastification';
 
-onMounted(() => {
-    store.fetchData();
+const toast = useToast();
+
+onMounted(async () => {
+    try {
+        await store.fetchData();
+    } catch (e) {
+        toast.error(e.message || '数据加载失败');
+    }
 });
 
 async function handleLogout() {

@@ -1,49 +1,23 @@
 import yaml from 'js-yaml';
 
 const PREDEFINED_RULES = {
-    Lan: [
-        'FINAL,DIRECT,dns-failed'
-    ],
-    Apple: [
-        'RULE-SET,apple,DIRECT'
-    ],
-    Microsoft: [
-        'RULE-SET,microsoft,DIRECT'
-    ],
-    Google: [
-        'RULE-SET,google,🚀 PROXY'
-    ],
-    Proxy: [
-        'RULE-SET,proxy,🚀 PROXY'
-    ],
-    Cn: [
-        'RULE-SET,cn,DIRECT'
-    ],
-    Telegram: [
-        'RULE-SET,telegram,🚀 PROXY'
-    ],
-    Private: [
-        'RULE-SET,private,DIRECT'
-    ],
-    Domestic: [
-        'RULE-SET,domestic,DIRECT'
-    ],
-    Ads: [
-        'RULE-SET,ads,REJECT'
-    ]
+    Lan: ['FINAL,DIRECT,dns-failed'],
+    Apple: ['RULE-SET,apple,DIRECT'],
+    Microsoft: ['RULE-SET,microsoft,DIRECT'],
+    Google: ['RULE-SET,google,🚀 PROXY'],
+    Proxy: ['RULE-SET,proxy,🚀 PROXY'],
+    Cn: ['RULE-SET,cn,DIRECT'],
+    Telegram: ['RULE-SET,telegram,🚀 PROXY'],
+    Private: ['RULE-SET,private,DIRECT'],
+    Domestic: ['RULE-SET,domestic,DIRECT'],
+    Ads: ['RULE-SET,ads,REJECT']
 };
 
-// --- KV 存储的 Key ---
 const KV_KEY_NODES = 'prosub_nodes_v1';
 const KV_KEY_PROFILES = 'prosub_profiles_v1';
-
-// --- 【新增】认证与会话常量 ---
 const COOKIE_NAME = 'prosub_session';
-const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8小时
+const SESSION_DURATION = 8 * 60 * 60 * 1000;
 
-// --- 【新增】认证核心函数 ---
-
-// 创建一个带有HMAC签名的Token
 async function createSignedToken(key, data) {
     const encoder = new TextEncoder();
     const keyData = encoder.encode(key);
@@ -53,7 +27,6 @@ async function createSignedToken(key, data) {
     return `${data}.${Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
-// 验证一个带有HMAC签名的Token
 async function verifySignedToken(key, token) {
     if (!key || !token) return null;
     const parts = token.split('.');
@@ -63,7 +36,6 @@ async function verifySignedToken(key, token) {
     return token === expectedToken ? data : null;
 }
 
-// 认证中间件，检查请求的Cookie是否有效
 async function authMiddleware(request, env) {
     if (!env.COOKIE_SECRET) {
         console.error("COOKIE_SECRET is not set!");
@@ -71,107 +43,48 @@ async function authMiddleware(request, env) {
     }
     const cookieHeader = request.headers.get('Cookie');
     if (!cookieHeader) return false;
-
     const cookies = cookieHeader.split(';').map(c => c.trim());
     const sessionCookie = cookies.find(c => c.startsWith(`${COOKIE_NAME}=`));
     if (!sessionCookie) return false;
-    
     const token = sessionCookie.split('=')[1];
     const verifiedData = await verifySignedToken(env.COOKIE_SECRET, token);
-    
     return verifiedData && (Date.now() - parseInt(verifiedData, 10) < SESSION_DURATION);
 }
 
-
-// --- 核心转换逻辑 ---
-
-/**
- * 解析单个节点链接，返回 Clash Proxy Object
- * @param {object} node - 包含 name 和 url 的节点对象
- * @returns {object|null} - Clash Proxy 对象或 null
- */
 function parseNodeToClashProxy(node) {
     if (!node || !node.url) return null;
-
     try {
         const url = new URL(node.url);
         const protocol = url.protocol.replace(':', '');
-
         switch (protocol) {
             case 'vmess': {
                 const decoded = JSON.parse(atob(url.hostname));
-                return {
-                    name: node.name,
-                    type: 'vmess',
-                    server: decoded.add,
-                    port: parseInt(decoded.port, 10),
-                    uuid: decoded.id,
-                    alterId: decoded.aid,
-                    cipher: decoded.scy || 'auto',
-                    tls: decoded.tls === 'tls',
-                    'skip-cert-verify': true,
-                    network: decoded.net,
-                    'ws-opts': decoded.net === 'ws' ? { path: decoded.path, headers: { Host: decoded.host } } : undefined,
-                };
+                return { name: node.name, type: 'vmess', server: decoded.add, port: parseInt(decoded.port, 10), uuid: decoded.id, alterId: decoded.aid, cipher: decoded.scy || 'auto', tls: decoded.tls === 'tls', 'skip-cert-verify': true, network: decoded.net, 'ws-opts': decoded.net === 'ws' ? { path: decoded.path, headers: { Host: decoded.host } } : undefined, };
             }
             case 'trojan': {
-                return {
-                    name: node.name,
-                    type: 'trojan',
-                    server: url.hostname,
-                    port: parseInt(url.port, 10),
-                    password: url.username,
-                    sni: url.searchParams.get('sni') || url.hostname,
-                    'skip-cert-verify': true,
-                };
+                return { name: node.name, type: 'trojan', server: url.hostname, port: parseInt(url.port, 10), password: url.username, sni: url.searchParams.get('sni') || url.hostname, 'skip-cert-verify': true, };
             }
             case 'vless': {
                 const sni = url.searchParams.get('sni') || url.hostname;
-                return {
-                    name: node.name,
-                    type: 'vless',
-                    server: url.hostname,
-                    port: parseInt(url.port, 10),
-                    uuid: url.username,
-                    network: url.searchParams.get('type') || 'ws', // 默认为 ws
-                    tls: url.searchParams.get('security') === 'tls',
-                    'skip-cert-verify': true,
-                    servername: sni, // for sni
-                    'ws-opts': url.searchParams.get('type') === 'ws' ? {
-                        path: url.searchParams.get('path') || '/',
-                        headers: { Host: sni }
-                    } : undefined,
-                };
+                return { name: node.name, type: 'vless', server: url.hostname, port: parseInt(url.port, 10), uuid: url.username, network: url.searchParams.get('type') || 'ws', tls: url.searchPams.get('security') === 'tls', 'skip-cert-verify': true, servername: sni, 'ws-opts': url.searchParams.get('type') === 'ws' ? { path: url.searchParams.get('path') || '/', headers: { Host: sni } } : undefined, };
             }
             case 'ss': {
                 const hashIndex = url.href.indexOf('#');
                 const mainPart = hashIndex !== -1 ? url.href.substring(0, hashIndex) : url.href;
-                
                 let userInfo, serverInfo;
                 if (mainPart.includes('@')) {
-                    // 格式: ss://method:password@server:port (需要base64解码用户信息部分)
                     const parts = mainPart.replace('ss://', '').split('@');
                     userInfo = atob(parts[0]).split(':');
                     serverInfo = parts[1].split(':');
                 } else {
-                    // 格式: ss://BASE64ENCODED(method:password@server:port)
                     const decoded = atob(mainPart.replace('ss://', ''));
                     const atIndex = decoded.indexOf('@');
                     userInfo = decoded.substring(0, atIndex).split(':');
                     serverInfo = decoded.substring(atIndex + 1).split(':');
                 }
-
-                return {
-                    name: node.name,
-                    type: 'ss',
-                    server: serverInfo[0],
-                    port: parseInt(serverInfo[1], 10),
-                    cipher: userInfo[0],
-                    password: userInfo[1],
-                };
+                return { name: node.name, type: 'ss', server: serverInfo[0], port: parseInt(serverInfo[1], 10), cipher: userInfo[0], password: userInfo[1], };
             }
             default:
-                console.warn(`Unsupported protocol for Clash conversion: ${protocol}`);
                 return null;
         }
     } catch (error) {
@@ -180,26 +93,11 @@ function parseNodeToClashProxy(node) {
     }
 }
 
-/**
- * 根据节点列表和 Profile 设置，构建 Clash 配置文本
- * @param {Array<object>} nodes - 经过筛选的节点对象数组
- * @param {object} profile - 输出配置对象
- * @param {string|null} remoteConfigContent - （新增）远程配置文件的文本内容
- * @returns {string} - YAML 格式的 Clash 配置
- */
-// 在 functions/api/[[path]].js 文件中，找到并替换 buildClashConfig 函数
-
 function buildClashConfig(nodes, profile) {
     const proxies = nodes.map(parseNodeToClashProxy).filter(Boolean);
     const proxyNames = proxies.map(p => p.name);
-
     const finalConfig = {
-        'port': 7890,
-        'socks-port': 7891,
-        'allow-lan': true,
-        'mode': 'rule',
-        'log-level': 'info',
-        'external-controller': '127.0.0.1:9090',
+        'port': 7890, 'socks-port': 7891, 'allow-lan': true, 'mode': 'rule', 'log-level': 'info', 'external-controller': '127.0.0.1:9090',
         'proxies': proxies,
         'proxy-groups': [
             { name: '🚀 PROXY', type: 'select', proxies: ['SELECT', 'DIRECT', ...proxyNames] },
@@ -225,16 +123,10 @@ function buildClashConfig(nodes, profile) {
         },
         'rules': [],
     };
-
     let finalRules = [];
-
-    // --- 【核心修改】 ---
-    // 1. 优先添加用户自定义规则
     if (profile.userCustomRules && Array.isArray(profile.userCustomRules) && profile.userCustomRules.length > 0) {
         finalRules = [...finalRules, ...profile.userCustomRules];
     }
-
-    // 2. 接着添加预设规则集
     if (profile.selectedRuleSets && Array.isArray(profile.selectedRuleSets)) {
         profile.selectedRuleSets.forEach(ruleSetId => {
             if (PREDEFINED_RULES[ruleSetId]) {
@@ -242,23 +134,15 @@ function buildClashConfig(nodes, profile) {
             }
         });
     }
-
     finalConfig.rules = finalRules;
-    // 3. 最后添加兜底规则
     finalConfig.rules.push('MATCH,漏网之鱼');
-
     return yaml.dump(finalConfig);
 }
-/**
- * 将单个节点对象解析成 V2Ray outbound 格式
- * @param {object} node - 包含 name 和 url 的节点对象
- * @returns {object|null} - V2Ray outbound 对象或 null
- */
+
 function parseNodeToV2rayOutbound(node) {
     try {
-        const parsedDetails = parseNodeToClashProxy(node); // 我们可以复用Clash的解析结果
+        const parsedDetails = parseNodeToClashProxy(node);
         if (!parsedDetails) return null;
-
         const protocol = parsedDetails.type;
         const settings = {};
         const streamSettings = {
@@ -267,157 +151,86 @@ function parseNodeToV2rayOutbound(node) {
             tlsSettings: parsedDetails.tls ? { serverName: parsedDetails.servername || parsedDetails.server } : undefined,
             wsSettings: parsedDetails.network === 'ws' ? parsedDetails['ws-opts'] : undefined,
         };
-
         switch (protocol) {
-            case 'vmess':
-                settings.vnext = [{
-                    address: parsedDetails.server,
-                    port: parsedDetails.port,
-                    users: [{ id: parsedDetails.uuid, alterId: parsedDetails.alterId, security: parsedDetails.cipher }]
-                }];
-                break;
-            case 'vless':
-                settings.vnext = [{
-                    address: parsedDetails.server,
-                    port: parsedDetails.port,
-                    users: [{ id: parsedDetails.uuid, flow: 'xtls-rprx-vision' }]
-                }];
-                break;
-            case 'trojan':
-                settings.servers = [{
-                    address: parsedDetails.server,
-                    port: parsedDetails.port,
-                    password: parsedDetails.password
-                }];
-                break;
-            case 'ss':
-                 settings.servers = [{
-                    address: parsedDetails.server,
-                    port: parsedDetails.port,
-                    method: parsedDetails.cipher,
-                    password: parsedDetails.password
-                }];
-                break;
-            default:
-                return null;
+            case 'vmess': settings.vnext = [{ address: parsedDetails.server, port: parsedDetails.port, users: [{ id: parsedDetails.uuid, alterId: parsedDetails.alterId, security: parsedDetails.cipher }] }]; break;
+            case 'vless': settings.vnext = [{ address: parsedDetails.server, port: parsedDetails.port, users: [{ id: parsedDetails.uuid, flow: 'xtls-rprx-vision' }] }]; break;
+            case 'trojan': settings.servers = [{ address: parsedDetails.server, port: parsedDetails.port, password: parsedDetails.password }]; break;
+            case 'ss': settings.servers = [{ address: parsedDetails.server, port: parsedDetails.port, method: parsedDetails.cipher, password: parsedDetails.password }]; break;
+            default: return null;
         }
-
-        return {
-            tag: node.name,
-            protocol,
-            settings,
-            streamSettings,
-        };
-
+        return { tag: node.name, protocol, settings, streamSettings };
     } catch (e) {
         console.error("Failed to parse node to V2Ray outbound:", e);
         return null;
     }
 }
 
-/**
- * 构建 V2Ray config.json
- * @param {Array<object>} nodes
- * @returns {string} - JSON 格式的 V2Ray 配置
- */
 function buildV2rayConfig(nodes) {
     const outbounds = nodes.map(parseNodeToV2rayOutbound).filter(Boolean);
     const proxyTags = outbounds.map(o => o.tag);
-
     const v2rayConfig = {
-        inbounds: [
-            {
-                port: 10808,
-                listen: '127.0.0.1',
-                protocol: 'socks',
-                settings: { auth: 'noauth', udp: true }
-            }
-        ],
-        outbounds: [
-            { tag: 'direct', protocol: 'freedom', settings: {} },
-            { tag: 'block', protocol: 'blackhole', settings: {} },
-            ...outbounds
-        ],
+        inbounds: [{ port: 10808, listen: '127.0.0.1', protocol: 'socks', settings: { auth: 'noauth', udp: true } }],
+        outbounds: [{ tag: 'direct', protocol: 'freedom', settings: {} }, { tag: 'block', protocol: 'blackhole', settings: {} }, ...outbounds],
         routing: {
             domainStrategy: 'AsIs',
             rules: [
                 { type: 'field', ip: ['geoip:private'], outboundTag: 'direct' },
                 { type: 'field', domain: ['geosite:cn'], outboundTag: 'direct' },
                 { type: 'field', ip: ['geoip:cn'], outboundTag: 'direct' },
-                { type: 'field', port: '0-65535', outboundTag: proxyTags[0] || 'direct' } // 默认走第一个代理
+                { type: 'field', port: '0-65535', outboundTag: proxyTags[0] || 'direct' }
             ]
         }
     };
-
     return JSON.stringify(v2rayConfig, null, 2);
 }
 
-// --- 主请求处理函数 ---
-// --- 主请求处理函数 ---
 export async function onRequest(context) {
     const { request, env } = context;
-    const url = new URL(request.url);
-
-    // [[path]] 路由的最佳实践是使用 context.params.path
-    // 例如，对于 /api/subscribe/123, context.params.path 是 ['subscribe', '123']
     const pathSegments = context.params.path;
     const resource = pathSegments[0];
     const id = pathSegments[1];
 
-    // --- 订阅链接生成路由 (无需认证) ---
     if (resource === 'subscribe' && id) {
         const profileId = id;
         try {
             const profilesStr = await env.KV.get(KV_KEY_PROFILES);
             const allProfiles = profilesStr ? JSON.parse(profilesStr) : [];
             const targetProfile = allProfiles.find(p => p.id === profileId);
-
             if (!targetProfile) return new Response('Profile not found', { status: 404 });
 
             const nodesStr = await env.KV.get(KV_KEY_NODES);
             const allNodes = nodesStr ? JSON.parse(nodesStr) : [];
-            
             const selectedNodesFromProfile = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
             
-            let remoteConfigContent = null;
-            if (targetProfile.remoteConfig && targetProfile.remoteConfig.startsWith('http')) {
-                try {
-                    const configResponse = await fetch(targetProfile.remoteConfig);
-                    if (configResponse.ok) {
-                        remoteConfigContent = await configResponse.text();
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch remote config:", e);
-                }
-            }
-            
-            let resolvedNodes = [];
             const processingPromises = selectedNodesFromProfile.map(async (node) => {
                 if (node.url.startsWith('http')) {
+                    const cacheKey = `sub-cache:${node.url}`;
+                    const cached = await env.KV.get(cacheKey);
+                    if (cached) {
+                        const lines = cached.split(/\r?\n/).filter(Boolean);
+                        return lines.map((line, i) => ({ name: `${node.name}-${i}`, url: line }));
+                    }
                     try {
                         const response = await fetch(node.url, { headers: { 'User-Agent': 'ProSub/1.0' } });
                         if (response.ok) {
                             const text = await response.text();
-                            const isBase64 = /^[a-zA-Z0-9+/=\s]+$/.test(text) && text.length % 4 === 0;
-                            const decodedText = isBase64 ? atob(text) : text;
-                            const lines = decodedText.split(/\r?\n/).filter(line => line.trim());
-                            return lines.map((line, index) => ({ name: `${node.name} - ${index + 1}`, url: line.trim() }));
+                            const decodedText = /^[a-zA-Z0-9+/=\s]+$/.test(text) && text.length % 4 === 0 ? atob(text) : text;
+                            await env.KV.put(cacheKey, decodedText, { expirationTtl: 3600 });
+                            const lines = decodedText.split(/\r?\n/).filter(Boolean);
+                            return lines.map((line, i) => ({ name: `${node.name}-${i}`, url: line }));
                         }
                     } catch (e) { return []; }
                 } else {
-                    return [node]; 
+                    return [node];
                 }
                 return [];
             });
-
+            
             const allResolvedNodesNested = await Promise.all(processingPromises);
-            resolvedNodes = allResolvedNodesNested.flat();
+            const resolvedNodes = allResolvedNodesNested.flat();
 
             if (resolvedNodes.length === 0) {
-                return new Response(`// No nodes could be resolved for this profile.`, { 
-                    status: 200,
-                    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-                });
+                return new Response(`// No nodes could be resolved.`, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' }});
             }
             
             let outputConfig = '';
@@ -428,7 +241,7 @@ export async function onRequest(context) {
                 outputConfig = buildV2rayConfig(resolvedNodes);
                 contentType = 'application/json; charset=utf-8';
                 fileExtension = 'json';
-            } else { // 默认为 Clash
+            } else {
                 outputConfig = buildClashConfig(resolvedNodes, targetProfile);
                 fileExtension = 'yaml';
             }
@@ -445,9 +258,6 @@ export async function onRequest(context) {
         }
     }
 
-    // --- 受保护的API路由 ---
-
-    // 登录请求 (无需认证)
     if (resource === 'login' && request.method === 'POST') {
         try {
             const { password } = await request.json();
@@ -463,24 +273,20 @@ export async function onRequest(context) {
         }
     }
 
-    // 对后续所有API请求进行认证检查
     const isAuthed = await authMiddleware(request, env);
     if (!isAuthed) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
-    // 登出请求
     if (resource === 'logout' && request.method === 'POST') {
         const headers = new Headers({ 'Content-Type': 'application/json' });
         headers.append('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
         return new Response(JSON.stringify({ success: true }), { headers });
     }
     
-    // 定义唯一的CRUD处理器
     const handleCrud = async (kvKey, request, id) => {
         let data = await env.KV.get(kvKey);
         let items = data ? JSON.parse(data) : [];
-
         switch (request.method) {
             case 'GET':
                 return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
@@ -513,7 +319,6 @@ export async function onRequest(context) {
         }
     };
 
-    // 调用CRUD处理器
     if (resource === 'nodes') {
         return handleCrud(KV_KEY_NODES, request, id);
     }
@@ -521,6 +326,5 @@ export async function onRequest(context) {
         return handleCrud(KV_KEY_PROFILES, request, id);
     }
     
-    // 如果没有任何路由匹配，则返回404
     return new Response('API route not found', { status: 404 });
 }
