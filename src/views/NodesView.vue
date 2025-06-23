@@ -152,73 +152,33 @@ function closeDetailModal() { showDetailModal.value = false; }
 
 <style scoped>
 .view-container { max-width: 1280px; margin: 0 auto; }
-.card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.card { margin-bottom: 2rem; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .card-header h2 { margin: 0; }
 .header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
-.card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
-.loading-text, .empty-state { text-align: center; padding: 3rem; color: #888; border: 2px dashed #e5e7eb; border-radius: 8px; margin-top: 1rem;}
+.card-description { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
+.loading-text, .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); margin-top: 1rem;}
 
+.node-list { list-style: none; padding: 0; margin-top: 1rem; }
+.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--color-border); }
+.node-item:last-child { border-bottom: none; }
 .item-info { display: flex; align-items: center; gap: 0.75rem; word-break: break-all; padding-right: 1rem; }
 .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-button { padding: 0.5rem 1rem; border: none; border-radius: 5px; color: white; cursor: pointer; transition: background-color 0.2s; font-weight: 500; }
-button:disabled { cursor: not-allowed; opacity: 0.7; }
-.btn-primary { background-color: #007bff; }
-.btn-secondary { background-color: #6c757d; }
-.btn-danger { background-color: #dc3545; }
-.btn-warning { background-color: #ffc107; color: #212529; }
-.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; }
-.protocol-vmess { background-color: #10b981; color: white; }
-.protocol-vless { background-color: #3b82f6; color: white; }
-.protocol-trojan { background-color: #ef4444; color: white; }
-.protocol-ss { background-color: #f97316; color: white; }
-.protocol-hysteria2 { background-color: #8b5cf6; color: white; }
-.protocol-sub { background-color: #64748b; color: white; }
-.protocol-unknown { background-color: #9ca3af; color: white; }
 
-/* 【核心修改】为虚拟列表和其项目设定精确的高度 */
-.scroller {
-  height: 60vh; /* 设定一个视窗高度，使其在不同屏幕下表现一致 */
-  overflow-y: auto;
-}
-.node-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #eee;
-  height: 61px; /* 关键！这个高度必须与 RecylerScroller 的 :item-size 属性精确匹配 */
-}
-.node-item:last-child {
-    border-bottom: none;
-}
-/* 【核心修正】手机端的响应式样式 */
+.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; color: white;}
+.protocol-vmess { background-color: #10b981; }
+.protocol-vless { background-color: #3b82f6; }
+.protocol-trojan { background-color: #ef4444; }
+.protocol-ss { background-color: #f97316; }
+.protocol-hysteria2 { background-color: #8b5cf6; }
+.protocol-sub { background-color: #64748b; }
+.protocol-unknown { background-color: #9ca3af; }
+
 @media (max-width: 768px) {
-    .node-item {
-        flex-direction: column; /* 垂直堆叠 */
-        align-items: stretch; /* 拉伸对齐 */
-        gap: 0.75rem;
-    }
-    .item-info {
-        padding-right: 0;
-        font-size: 0.9rem; /* 稍微缩小字体 */
-    }
-    .item-actions {
-        justify-content: flex-end; /* 按钮靠右 */
-        border-top: 1px solid #eee;
-        padding-top: 0.75rem;
-        margin-top: 0.5rem;
-    }
-    .card-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .header-actions {
-        justify-content: space-between;
-    }
-    button {
-      padding: 0.6rem 0.8rem; /* 调整按钮大小 */
-      font-size: 0.9rem;
-    }
+    .node-item { flex-direction: column; align-items: stretch; gap: 0.75rem; padding: 1rem; }
+    .item-info { padding-right: 0; font-size: 0.9rem; }
+    .item-actions { justify-content: flex-end; border-top: 1px solid var(--color-border); padding-top: 0.75rem; margin-top: 0.5rem; }
+    .card-header { flex-direction: column; align-items: stretch; }
+    .header-actions { justify-content: space-between; }
 }
 </style>

@@ -133,40 +133,31 @@ function copyLink(link, profileId) {
 
 <style scoped>
 .view-container { max-width: 1024px; margin: 0 auto; }
-.card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.card { margin-bottom: 2rem; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .card-header h2 { margin: 0; }
-.card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; margin-bottom: 1.5rem; }
-hr { border: none; border-top: 1px solid #eee; margin-top: 1.5rem; }
-.item-list { list-style: none; padding: 0; margin-top: 1.5rem;}
-li { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; padding: 1.5rem 0; border-bottom: 1px solid #eee; }
-li:first-child { padding-top: 0; }
-li:last-child { border-bottom: none; }
+.card-description { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 1.5rem; }
+form { display: flex; flex-direction: column; gap: 1.5rem; }
+.form-actions { display: flex; gap: 1rem; }
+
+.item-list { list-style: none; padding: 0; margin-top: 1.5rem; }
+li { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; padding: 1.5rem; border: 1px solid var(--color-border); border-radius: var(--border-radius); margin-bottom: 1rem;}
+li:last-child { margin-bottom: 0; }
 .profile-content { flex-grow: 1; display: flex; flex-direction: column; gap: 0.75rem; }
 .profile-details { display: flex; align-items: center; gap: 1rem; }
 .profile-details strong { font-size: 1.1rem; }
-.profile-details span { font-size: 0.85rem; color: #666; background-color: #f0f0f0; padding: 0.2rem 0.5rem; border-radius: 4px;}
-.link-input { width: 100%; background-color: #e9ecef; border: 1px solid #ccc; border-radius: 4px; padding: 0.5rem; font-family: monospace; font-size: 0.85rem; }
+.profile-details span { font-size: 0.85rem; color: var(--text-secondary); background-color: var(--color-background); padding: 0.2rem 0.5rem; border-radius: 4px;}
+.link-input { width: 100%; background-color: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--border-radius); padding: 0.75rem; font-family: var(--font-mono); font-size: 0.85rem; }
 .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-button { padding: 0.6rem 1.2rem; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; font-weight: 500;}
-.btn-primary { background-color: #007bff; }
-.btn-danger { background-color: #dc3545; }
-.btn-success { background-color: #28a745; }
-.btn-warning { background-color: #ffc107; color: #212529; }
-.empty-state { text-align: center; padding: 2rem; color: #888; }
-/* 在 ProfilesView.vue 的 <style scoped> 中添加 */
+.empty-state { text-align: center; padding: 2rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); }
+.empty-state-small { font-size: 0.9rem; color: var(--text-secondary); margin: 0; padding: 0.5rem;}
+fieldset { border: 1px solid var(--color-border); padding: 1rem; border-radius: var(--border-radius); }
+legend { padding: 0 0.5rem; font-weight: 600; }
+.checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.checkbox-item { display: flex; align-items: center; gap: 0.5rem; }
 
 @media (max-width: 768px) {
-  li {
-    flex-direction: column; /* 将左右布局变为上下布局 */
-    align-items: stretch; /* 让内容和按钮都撑满宽度 */
-    gap: 1rem;
-  }
-  .item-actions {
-    justify-content: flex-end; /* 让按钮靠右对齐 */
-  }
-  .view-container {
-    padding: 0;
-  }
+  li { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .item-actions { justify-content: flex-end; }
 }
 </style>
