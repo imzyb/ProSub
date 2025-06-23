@@ -137,7 +137,11 @@ function closeDetailModal() { showDetailModal.value = false; }
         </div>
       </RecycleScroller>
       
-      <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
+      <div v-else class="empty-state">
+        <h3>空空如也</h3>
+        <p>这里还没有任何节点或订阅。请添加您的第一个！</p>
+        <button @click="openAddModal" class="btn-primary mt-4">新增节点</button>
+      </div>
     </div>
 
     <BatchImportModal :show="showBatchImportModal" @close="showBatchImportModal = false" @save="handleBatchSave" />

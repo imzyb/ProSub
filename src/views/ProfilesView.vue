@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
 import ProfileEditorModal from '../components/ProfileEditorModal.vue';
@@ -10,6 +10,9 @@ const showEditorModal = ref(false);
 const profileToEdit = ref(null);
 const isSavingProfile = ref(false);
 const deletingProfileId = ref(null);
+
+// 【新增】用于跟踪哪个链接刚被复制
+const copiedProfileId = ref(null);
 
 async function handleSaveProfile(formData) {
   isSavingProfile.value = true;
@@ -64,8 +67,17 @@ function openEditModal(profile) {
   showEditorModal.value = true;
 }
 const getSubscriptionLink = (profileId) => `${window.location.origin}/api/subscribe/${profileId}`;
-function copyLink(link) {
-  navigator.clipboard.writeText(link).then(() => toast.success('链接已复制到剪贴板！'));
+// 【修改】copyLink 函数
+function copyLink(link, profileId) {
+  navigator.clipboard.writeText(link).then(() => {
+    // toast.success('链接已复制到剪贴板！'); // 可以保留，也可以移除，因为有了即时反馈
+    copiedProfileId.value = profileId; // 记录被复制的ID
+    setTimeout(() => {
+      if (copiedProfileId.value === profileId) {
+        copiedProfileId.value = null; // 2秒后清除状态
+      }
+    }, 2000);
+  });
 }
 </script>
 
@@ -89,7 +101,10 @@ function copyLink(link) {
             <input class="link-input" :value="getSubscriptionLink(profile.id)" readonly />
           </div>
           <div class="item-actions">
-            <button @click="copyLink(getSubscriptionLink(profile.id))" class="btn-success">复制</button>
+            <button @click="copyLink(getSubscriptionLink(profile.id), profile.id)" class="btn-success" :disabled="copiedProfileId === profile.id">
+              <span v-if="copiedProfileId === profile.id">已复制!</span>
+              <span v-else>复制</span>
+            </button>
             <button @click="openEditModal(profile)" class="btn-warning">编辑</button>
             <button @click="deleteProfile(profile.id)" class="btn-danger" :disabled="deletingProfileId === profile.id">
               <Spinner v-if="deletingProfileId === profile.id" />
@@ -98,7 +113,11 @@ function copyLink(link) {
           </div>
         </li>
       </ul>
-      <div v-else class="empty-state">暂无输出配置，请点击右上角“新增配置”来创建。</div>
+      <div v-else class="empty-state">
+        <h3>暂无输出配置</h3>
+        <p>请先创建您的第一个输出配置。</p>
+        <button @click="openAddModal" class="btn-primary mt-4">新增配置</button>
+      </div>
     </div>
 
     <ProfileEditorModal
