@@ -62,7 +62,6 @@ async function handleBatchSave(urls) {
 
 async function deleteNode(id) {
   if (deletingNodeId.value || !confirm('确定要删除这个节点吗？')) return;
-  store.isActionLoading = true; // 【修改】开始操作，显示遮罩
   deletingNodeId.value = id;
   try {
     const updatedNodes = store.nodes.filter(n => n.id !== id);
@@ -74,7 +73,6 @@ async function deleteNode(id) {
     toast.error('删除节点失败');
   } finally {
     deletingNodeId.value = null;
-    store.isActionLoading = false; // 【修改】操作结束，隐藏遮罩
   }
 }
 
@@ -111,20 +109,14 @@ function closeDetailModal() { showDetailModal.value = false; }
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
-      <RecycleScroller
-        v-else-if="store.nodes.length > 0"
-        class="scroller"
-        :items="store.nodes"
-        :item-size="61" 
-        key-field="id"
-        v-slot="{ item }"
-      >
-        <div class="node-item">
+      
+      <ul v-else-if="store.nodes.length > 0" class="node-list">
+        <li v-for="item in store.nodes" :key="item.id" class="node-item">
           <div class="item-info">
-              <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
-                {{ getProtocolInfo(item.url).text }}
-              </span>
-              <strong>{{ item.name }}</strong>
+            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
+              {{ getProtocolInfo(item.url).text }}
+            </span>
+            <strong>{{ item.name }}</strong>
           </div>
           <div class="item-actions">
             <button @click="openEditModal(item)" class="btn-warning">编辑</button>
@@ -134,8 +126,8 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </div>
-      </RecycleScroller>
+        </li>
+      </ul>
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
@@ -148,12 +140,13 @@ function closeDetailModal() { showDetailModal.value = false; }
 <style scoped>
 .view-container { max-width: 1280px; margin: 0 auto; }
 .card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .card-header h2 { margin: 0; }
 .header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
 .card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
 .loading-text, .empty-state { text-align: center; padding: 3rem; color: #888; border: 2px dashed #e5e7eb; border-radius: 8px; margin-top: 1rem;}
-.node-list { list-style: none; padding: 0; margin-top: 1rem;}
+
+.node-list { list-style: none; padding: 0; margin-top: 1rem; }
 .node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
 .node-item:last-child { border-bottom: none; }
 .item-info { display: flex; align-items: center; gap: 0.75rem; word-break: break-all; padding-right: 1rem; }
@@ -173,22 +166,33 @@ button:disabled { cursor: not-allowed; opacity: 0.7; }
 .protocol-sub { background-color: #64748b; color: white; }
 .protocol-unknown { background-color: #9ca3af; color: white; }
 
+/* 【核心修正】手机端的响应式样式 */
 @media (max-width: 768px) {
-    .node-item { flex-direction: column; align-items: stretch; gap: 0.75rem; }
-    .item-info { padding-right: 0; }
-    .item-actions { justify-content: flex-end; border-top: 1px solid #eee; padding-top: 0.75rem; }
-    .card-header { flex-direction: column; align-items: stretch; gap: 1rem; }
-}
-.scroller { 
-  height: 60vh; /* 使用视窗高度，更灵活 */
-  overflow-y: auto; 
-}
-.node-item { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 1rem; 
-  border-bottom: 1px solid #eee; 
-  height: 61px; /* 关键：这个高度必须与 :item-size 精确匹配 */
+    .node-item {
+        flex-direction: column; /* 垂直堆叠 */
+        align-items: stretch; /* 拉伸对齐 */
+        gap: 0.75rem;
+    }
+    .item-info {
+        padding-right: 0;
+        font-size: 0.9rem; /* 稍微缩小字体 */
+    }
+    .item-actions {
+        justify-content: flex-end; /* 按钮靠右 */
+        border-top: 1px solid #eee;
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+    }
+    .card-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .header-actions {
+        justify-content: space-between;
+    }
+    button {
+      padding: 0.6rem 0.8rem; /* 调整按钮大小 */
+      font-size: 0.9rem;
+    }
 }
 </style>
