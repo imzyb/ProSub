@@ -91,6 +91,10 @@ function handleSubmit() {
           <select id="profile-format" v-model="formData.outputFormat">
             <option>Clash</option>
             <option>V2Ray</option>
+            <option>V2RayN</option>
+            <option>sing-box</option>
+            <option>Loon</option>
+            <option>Surge</option>
           </select>
         </div>
         <fieldset>
