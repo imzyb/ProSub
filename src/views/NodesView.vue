@@ -128,16 +128,17 @@ function closeDetailModal() {
         </div>
       </div>
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
-      <hr />
+      
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
-      <ul v-else-if="store.nodes.length > 0" class="scroller">
+      
+      <ul v-else-if="store.nodes.length > 0" class="node-list">
         <li v-for="item in store.nodes" :key="item.id" class="node-item">
-          <span class="item-name">
+          <div class="item-info">
             <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
               {{ getProtocolInfo(item.url).text }}
             </span>
             <strong>{{ item.name }}</strong>
-          </span>
+          </div>
           <div class="item-actions">
             <button @click="openEditModal(item)" class="btn-warning">编辑</button>
             <button @click="showNodeDetails(item)" class="btn-secondary">详情</button>
@@ -148,48 +149,49 @@ function closeDetailModal() {
           </div>
         </li>
       </ul>
+      
       <div v-else class="empty-state">暂无节点，请添加您的第一个节点。</div>
     </div>
 
-    <BatchImportModal
-      :show="showBatchImportModal"
-      @close="showBatchImportModal = false"
-      @save="handleBatchSave"
-    />
-    <NodeEditorModal
-      :show="showEditorModal"
-      :node="nodeToEdit"
-      :is-saving="isSavingNode"
-      @close="showEditorModal = false"
-      @save="handleSaveNode"
-    />
-    <NodeDetailModal
-      :show="showDetailModal"
-      :node="selectedNodeForDetail"
-      @close="closeDetailModal"
-    />
+    <BatchImportModal :show="showBatchImportModal" @close="showBatchImportModal = false" @save="handleBatchSave" />
+    <NodeEditorModal :show="showEditorModal" :node="nodeToEdit" :is-saving="isSavingNode" @close="showEditorModal = false" @save="handleSaveNode" />
+    <NodeDetailModal :show="showDetailModal" :node="selectedNodeForDetail" @close="closeDetailModal" />
   </div>
 </template>
 
 <style scoped>
-/* 【修改】让item-name支持flex布局 */
-.item-name {
+.view-container { max-width: 1280px; margin: 0 auto; }
+.card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.card-header h2 { margin: 0; }
+.header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
+.card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; border-top: 1px solid #eee; padding-top: 1.5rem; }
+.loading-text, .empty-state { text-align: center; padding: 3rem; color: #888; border: 2px dashed #e5e7eb; border-radius: 8px; margin-top: 1rem;}
+
+.node-list { list-style: none; padding: 0; }
+.node-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+}
+.node-item:last-child { border-bottom: none; }
+.item-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem; /* 徽章和文字之间的间距 */
+  gap: 0.75rem;
   word-break: break-all;
   padding-right: 1rem;
 }
-/* 【新增】协议徽章的基础样式 */
 .protocol-badge {
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  color: white;
-  flex-shrink: 0; /* 防止被压缩 */
+  font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem;
+  border-radius: 9999px; color: white; flex-shrink: 0;
 }
-/* 【新增】不同协议的徽章颜色 */
+.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+button { padding: 0.5rem 1rem; border-radius: 5px; /* ... */ }
+
+/* 不同协议的徽章颜色 */
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
@@ -197,37 +199,25 @@ function closeDetailModal() {
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-.view-container { max-width: 1024px; margin: 0 auto; }
-.card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
-.card-header { display: flex; justify-content: space-between; align-items: center; }
-.card-header h2 { margin: 0; }
-.header-actions { display: flex; gap: 1rem; }
-.card-description { font-size: 0.9rem; color: #666; margin-top: 0.5rem; margin-bottom: 1.5rem; }
-h2 { margin-top: 0; margin-bottom: 1rem; }
-hr { border: none; border-top: 1px solid #eee; margin: 1.5rem 0; }
-.loading-text, .empty-state { text-align: center; padding: 2rem; color: #888; }
-.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-button { padding: 0.6rem 1.2rem; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; font-weight: 500; min-width: 80px; text-align: center;}
-button:disabled { cursor: not-allowed; opacity: 0.7; }
-.btn-primary { background-color: #007bff; }
-.btn-danger { background-color: #dc3545; }
-.btn-secondary { background-color: #6c757d; }
-.btn-warning { background-color: #ffc107; color: #212529; }
-.scroller { height: auto; max-height: 60vh; overflow-y: auto; list-style: none; padding: 0; }
-.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
-.item-name { word-break: break-all; padding-right: 1rem; }
+
+/* 【核心修正】手机端的响应式样式 */
 @media (max-width: 768px) {
-  .node-grid {
-    /* 在小屏幕上，强制变为单列布局 */
-    grid-template-columns: 1fr;
-  }
-  .view-container {
-    padding: 0; /* 移除容器的左右边距，让卡片占满宽度 */
-  }
-  .card-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-  }
+    .node-item {
+        flex-direction: column; /* 垂直堆叠 */
+        align-items: stretch; /* 拉伸对齐 */
+        gap: 0.75rem;
+    }
+    .item-info {
+        padding-right: 0;
+    }
+    .item-actions {
+        justify-content: flex-end; /* 按钮靠右 */
+        border-top: 1px solid #eee;
+        padding-top: 0.75rem;
+    }
+    .card-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 </style>
