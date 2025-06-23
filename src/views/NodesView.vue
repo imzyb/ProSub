@@ -1,5 +1,4 @@
 <script setup>
-// The <script setup> section requires NO CHANGES. It is already perfect.
 import { ref, computed } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
@@ -45,6 +44,7 @@ async function handleSaveNode(nodeData) {
 }
 
 async function handleBatchSave(urls) {
+    isSavingNode.value = true;
     try {
         const newNodes = urls.map(url => {
             const parsed = parseNodeUrl(url);
@@ -58,6 +58,8 @@ async function handleBatchSave(urls) {
         await store.fetchData();
     } catch(e) {
         toast.error('批量导入失败');
+    } finally {
+        isSavingNode.value = false;
     }
 }
 
@@ -111,15 +113,8 @@ function closeDetailModal() { showDetailModal.value = false; }
       
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
       
-      <RecycleScroller
-        v-else-if="store.nodes.length > 0"
-        class="scroller"
-        :items="store.nodes"
-        :item-size="61" 
-        key-field="id"
-        v-slot="{ item }"
-      >
-        <div class="node-item">
+      <ul v-else-if="store.nodes.length > 0" class="node-list">
+        <li v-for="item in store.nodes" :key="item.id" class="node-item">
           <div class="item-info">
             <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
               {{ getProtocolInfo(item.url).text }}
@@ -134,9 +129,9 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </div>
-      </RecycleScroller>
-      
+        </li>
+      </ul>
+
       <div v-else class="empty-state">
         <h3>空空如也</h3>
         <p>这里还没有任何节点或订阅。请添加您的第一个！</p>
@@ -151,21 +146,24 @@ function closeDetailModal() { showDetailModal.value = false; }
 </template>
 
 <style scoped>
+/* 这里的样式是为 ul 和 v-for 设计的，是稳定版本 */
 .view-container { max-width: 1280px; margin: 0 auto; }
-.card { margin-bottom: 2rem; }
+.card { background: #fff; border-radius: 0.5rem; padding: 2rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07); border: 1px solid #e5e7eb; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.card-header h2 { margin: 0; }
+.card-header h2 { margin: 0; font-size: 1.25rem; font-weight: 600; }
 .header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
-.card-description { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
-.loading-text, .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); margin-top: 1rem;}
-
+.card-description { font-size: 0.9rem; color: #6b7280; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
+.loading-text, .empty-state { text-align: center; padding: 3rem; color: #6b7280; border: 2px dashed #e5e7eb; border-radius: 0.5rem; margin-top: 1rem;}
+.empty-state h3 { font-size: 1.1rem; color: #1f2937; margin: 0 0 0.5rem 0; }
+.empty-state p { margin: 0 0 1rem 0; font-size: 0.9rem; }
+.mt-4 { margin-top: 1rem; }
 .node-list { list-style: none; padding: 0; margin-top: 1rem; }
-.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--color-border); }
+.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb; }
 .node-item:last-child { border-bottom: none; }
 .item-info { display: flex; align-items: center; gap: 0.75rem; word-break: break-all; padding-right: 1rem; }
 .item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-
-.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; color: white;}
+button { padding: 0.5rem 1rem; border-radius: 0.5rem; }
+.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; color: white; }
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
@@ -173,12 +171,11 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-
 @media (max-width: 768px) {
-    .node-item { flex-direction: column; align-items: stretch; gap: 0.75rem; padding: 1rem; }
+    .node-item { flex-direction: column; align-items: stretch; gap: 0.75rem; }
     .item-info { padding-right: 0; font-size: 0.9rem; }
-    .item-actions { justify-content: flex-end; border-top: 1px solid var(--color-border); padding-top: 0.75rem; margin-top: 0.5rem; }
-    .card-header { flex-direction: column; align-items: stretch; }
+    .item-actions { justify-content: flex-end; border-top: 1px solid #e5e7eb; padding-top: 0.75rem; margin-top: 0.5rem; }
+    .card-header { flex-direction: column; align-items: stretch; gap: 1rem;}
     .header-actions { justify-content: space-between; }
 }
 </style>
