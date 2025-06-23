@@ -216,4 +216,18 @@ button:disabled { cursor: not-allowed; opacity: 0.7; }
 .scroller { height: auto; max-height: 60vh; overflow-y: auto; list-style: none; padding: 0; }
 .node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
 .item-name { word-break: break-all; padding-right: 1rem; }
+@media (max-width: 768px) {
+  .node-grid {
+    /* 在小屏幕上，强制变为单列布局 */
+    grid-template-columns: 1fr;
+  }
+  .view-container {
+    padding: 0; /* 移除容器的左右边距，让卡片占满宽度 */
+  }
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+}
 </style>

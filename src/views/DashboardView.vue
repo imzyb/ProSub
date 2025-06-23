@@ -73,4 +73,31 @@ h1 { font-size: 1.5rem; font-weight: 600; color: #333; }
     background-color: #6c757d;
     color: white;
 }
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column; /* 将标题和导航变为垂直排列 */
+    align-items: flex-start; /* 左对齐 */
+    padding: 1rem; /* 缩小内边距 */
+    height: auto; /* 高度自适应 */
+  }
+  .dashboard-nav {
+    margin-left: 0;
+    margin-top: 1rem; /* 增加与标题的间距 */
+    gap: 0; /* 移除链接间的固定间距 */
+    width: 100%;
+    justify-content: space-around; /* 让链接均匀分布 */
+  }
+  .nav-link {
+    padding: 0.75rem 0.5rem; /* 缩小每个链接的内边距 */
+    font-size: 0.9rem;
+  }
+  .dashboard-main-content {
+    padding: 1rem; /* 缩小主内容区的内边距 */
+  }
+  .header-right {
+    position: absolute; /* 将登出按钮移动到右上角 */
+    top: 1rem;
+    right: 1rem;
+  }
+}
 </style>

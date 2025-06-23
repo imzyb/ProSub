@@ -137,4 +137,19 @@ button { padding: 0.6rem 1.2rem; color: white; border: none; border-radius: 5px;
 .btn-success { background-color: #28a745; }
 .btn-warning { background-color: #ffc107; color: #212529; }
 .empty-state { text-align: center; padding: 2rem; color: #888; }
+/* 在 ProfilesView.vue 的 <style scoped> 中添加 */
+
+@media (max-width: 768px) {
+  li {
+    flex-direction: column; /* 将左右布局变为上下布局 */
+    align-items: stretch; /* 让内容和按钮都撑满宽度 */
+    gap: 1rem;
+  }
+  .item-actions {
+    justify-content: flex-end; /* 让按钮靠右对齐 */
+  }
+  .view-container {
+    padding: 0;
+  }
+}
 </style>
