@@ -98,6 +98,39 @@ function buildV2rayConfig(nodes) {
     return JSON.stringify({ inbounds: [{ port: 10808, listen: '127.0.0.1', protocol: 'socks', settings: { auth: 'noauth', udp: true } }], outbounds: [{ tag: 'direct', protocol: 'freedom', settings: {} }, { tag: 'block', protocol: 'blackhole', settings: {} }, ...outbounds], routing: { domainStrategy: 'AsIs', rules: [ { type: 'field', ip: ['geoip:private'], outboundTag: 'direct' }, { type: 'field', domain: ['geosite:cn'], outboundTag: 'direct' }, { type: 'field', ip: ['geoip:cn'], outboundTag: 'direct' }, { type: 'field', port: '0-65535', outboundTag: proxyTags[0] || 'direct' } ] } }, null, 2);
 }
 
+// 【新增】一个可复用的函数，用于获取并解析一个Profile中的所有节点
+async function resolveNodesForProfile(profile, env) {
+    const nodesStr = await env.KV.get(KV_KEY_NODES);
+    const allNodes = nodesStr ? JSON.parse(nodesStr) : [];
+    const selectedNodesFromProfile = allNodes.filter(node => profile.nodeIds.includes(node.id));
+
+    const processingPromises = selectedNodesFromProfile.map(async (node) => {
+        if (node.url.startsWith('http')) {
+            const cacheKey = `sub-cache:${node.url}`;
+            const cached = await env.KV.get(cacheKey);
+            if (cached) {
+                const lines = cached.split(/\r?\n/).filter(Boolean);
+                return lines.map((line, i) => ({ name: `${node.name}-${i}`, url: line.trim() }));
+            }
+            try {
+                const response = await fetch(node.url, { headers: { 'User-Agent': 'ProSub/1.0' } });
+                if (response.ok) {
+                    const text = await response.text();
+                    const decodedText = /^[a-zA-Z0-9+/=\s]+$/.test(text) && text.length % 4 === 0 ? atob(text) : text;
+                    await env.KV.put(cacheKey, decodedText, { expirationTtl: 3600 });
+                    const lines = decodedText.split(/\r?\n/).filter(Boolean);
+                    return lines.map((line, i) => ({ name: `${node.name}-${i}`, url: line.trim() }));
+                }
+            } catch (e) { console.error(`Failed to fetch sub: ${node.url}`, e); return []; }
+        } else {
+            return [node];
+        }
+        return [];
+    });
+
+    const allResolvedNodesNested = await Promise.all(processingPromises);
+    return allResolvedNodesNested.flat();
+}
 
 // --- 主请求处理函数 ---
 export async function onRequest(context) {
@@ -107,27 +140,6 @@ export async function onRequest(context) {
     const resource = pathSegments[0];
     const id = pathSegments[1];
 
-    // --- 内部路由，为 subconverter 提供纯净节点列表 ---
-    if (resource === 'internal' && pathSegments[1] === 'base64' && id) {
-        try {
-            const profileId = id;
-            const profilesStr = await env.KV.get(KV_KEY_PROFILES);
-            const allProfiles = profilesStr ? JSON.parse(profilesStr) : [];
-            const targetProfile = allProfiles.find(p => p.id === profileId);
-
-            if (!targetProfile) return new Response('Profile not found', { status: 404 });
-            
-            const nodesStr = await env.KV.get(KV_KEY_NODES);
-            const allNodes = nodesStr ? JSON.parse(nodesStr) : [];
-            const selectedNodes = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
-
-            const nodeListString = selectedNodes.map(n => n.url).join('\n');
-            return new Response(btoa(nodeListString));
-        } catch (e) {
-            return new Response('Failed to generate base64 list', { status: 500 });
-        }
-    }
-
     // --- 主订阅路由，智能调度中心 ---
     if (resource === 'subscribe' && id) {
         try {
@@ -135,58 +147,51 @@ export async function onRequest(context) {
             const profilesStr = await env.KV.get(KV_KEY_PROFILES);
             const allProfiles = profilesStr ? JSON.parse(profilesStr) : [];
             const targetProfile = allProfiles.find(p => p.id === profileId);
+
             if (!targetProfile) return new Response('Profile not found', { status: 404 });
 
             const format = targetProfile.outputFormat.toLowerCase();
-            
-            // 调度逻辑
-            if (format === 'clash' || format === 'v2ray') {
-                // 使用内置转换器
-                const nodesStr = await env.KV.get(KV_KEY_NODES);
-                const allNodes = nodesStr ? JSON.parse(nodesStr) : [];
-                const selectedNodesFromProfile = allNodes.filter(node => targetProfile.nodeIds.includes(node.id));
-                
-                const processingPromises = selectedNodesFromProfile.map(async (node) => {
-                    if (node.url.startsWith('http')) {
-                        const cacheKey = `sub-cache:${node.url}`;
-                        const cached = await env.KV.get(cacheKey);
-                        if (cached) { return cached.split(/\r?\n/).filter(Boolean).map((line, i) => ({ name: `${node.name}-${i}`, url: line })); }
-                        try {
-                            const response = await fetch(node.url);
-                            if (response.ok) {
-                                const text = await response.text();
-                                const decodedText = /^[a-zA-Z0-9+/=\s]+$/.test(text) && text.length % 4 === 0 ? atob(text) : text;
-                                await env.KV.put(cacheKey, decodedText, { expirationTtl: 3600 });
-                                return decodedText.split(/\r?\n/).filter(Boolean).map((line, i) => ({ name: `${node.name}-${i}`, url: line }));
-                            }
-                        } catch (e) { return []; }
-                    } else { return [node]; }
-                    return [];
-                });
-                const resolvedNodes = (await Promise.all(processingPromises)).flat();
-                
-                let outputConfig = '';
-                let contentType = 'text/plain; charset=utf-8';
-                let fileExtension = 'txt';
-                if (format === 'v2ray') {
-                    outputConfig = buildV2rayConfig(resolvedNodes);
-                    contentType = 'application/json; charset=utf-8';
-                    fileExtension = 'json';
-                } else {
-                    outputConfig = buildClashConfig(resolvedNodes, targetProfile);
-                    fileExtension = 'yaml';
-                }
-                return new Response(outputConfig, { headers: { 'Content-Type': contentType, 'Content-Disposition': `attachment; filename="${encodeURIComponent(targetProfile.name)}.${fileExtension}"` } });
+            const resolvedNodes = await resolveNodesForProfile(targetProfile, env);
+
+            if (resolvedNodes.length === 0) {
+                return new Response(`// No nodes found for this profile.`, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+            }
+
+            let outputConfig = '';
+            let contentType = 'text/plain; charset=utf-8';
+            let fileExtension = 'txt';
+
+            // 【核心修正】调度逻辑更新
+            if (format === 'clash') {
+                outputConfig = buildClashConfig(resolvedNodes, targetProfile);
+                fileExtension = 'yaml';
+            } else if (format === 'v2ray') {
+                outputConfig = buildV2rayConfig(resolvedNodes);
+                contentType = 'application/json; charset=utf-8';
+                fileExtension = 'json';
+            } else if (format === 'v2rayn') {
+                // V2RayN需要纯粹的base64编码节点列表
+                const nodeListString = resolvedNodes.map(n => n.url).join('\n');
+                outputConfig = btoa(nodeListString);
             } else {
-                // 使用外部 subconverter
-                const callbackUrl = `${url.protocol}//${url.host}/api/internal/base64/${profileId}`;
+                // 其他格式(sing-box, loon, surge)通过外部subconverter处理
+                const nodeListString = resolvedNodes.map(n => n.url).join('\n');
+                const base64Nodes = btoa(nodeListString);
+                // 直接将base64内容通过data URI传给subconverter，不再需要内部回调路由
+                const callbackUrl = `data:text/plain;base64,${base64Nodes}`;
+                
                 const subconverterUrl = new URL(`https://${SUBVERTER_URL}/sub`);
-                subconverterUrl.searchParams.set('target', format === 'v2rayn' ? 'v2ray' : format); // V2RayN 本质是 v2ray 格式
+                subconverterUrl.searchParams.set('target', format);
                 subconverterUrl.searchParams.set('url', callbackUrl);
                 subconverterUrl.searchParams.set('filename', targetProfile.name);
+
                 console.log(`Forwarding to subconverter: ${subconverterUrl.toString()}`);
                 return fetch(subconverterUrl.toString());
             }
+
+            return new Response(outputConfig, {
+                headers: { 'Content-Type': contentType, 'Content-Disposition': `attachment; filename="${encodeURIComponent(targetProfile.name)}.${fileExtension}"` },
+            });
 
         } catch (error) {
             console.error('Subscription generation failed:', error);
