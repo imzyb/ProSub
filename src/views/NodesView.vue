@@ -164,7 +164,7 @@ function closeDetailModal() { showDetailModal.value = false; }
 .node-card-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem; /* 【修正】确保徽章和名称有足够间距 */
+  gap: 1rem; /* 【修改】增大徽章和名称的间距 */
   overflow: hidden;
 }
 .node-name {
@@ -174,7 +174,16 @@ function closeDetailModal() { showDetailModal.value = false; }
   text-overflow: ellipsis;
 }
 .node-card-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; color: white; }
+.protocol-badge {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.2rem 0; /* 调整内边距 */
+  border-radius: 9999px;
+  flex-shrink: 0;
+  color: white;
+  min-width: 60px; /* 【新增】设定一个最小宽度，让所有徽章对齐 */
+  text-align: center; /* 【新增】让文字在徽章内居中 */
+}
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }

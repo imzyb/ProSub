@@ -131,8 +131,8 @@ function handleSubmit() {
         </fieldset>
       </form>
       <div class="modal-actions">
-        <button @click="emit('close')" class="btn-secondary">取消</button>
-        <button type="submit" form="profile-editor-form" class="btn-primary" :disabled="isSaving">
+        <button type="button" @click="emit('close')" class="btn btn-outline-secondary">取消</button>
+        <button type="submit" form="profile-editor-form" class="btn btn-primary" :disabled="isSaving">
             <Spinner v-if="isSaving" />
             <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
         </button>
@@ -154,9 +154,6 @@ legend { padding: 0 0.5rem; font-weight: 600; color: var(--text-primary); }
 .node-selection { max-height: 200px; overflow-y: auto; }
 .checkbox-item, .checkbox-label { display: flex; align-items: center; gap: 0.5rem; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; flex-shrink: 0; }
-.btn-primary { background-color: var(--primary); }
-.btn-secondary { background-color: var(--secondary); }
-button { min-width: 80px; }
 .selection-actions { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
 .btn-link { background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; font-size: 0.85rem; }
 .protocol-badge { font-size: 0.7rem; font-weight: bold; padding: 0.1rem 0.4rem; border-radius: 9999px; color: white; }
