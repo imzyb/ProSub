@@ -93,14 +93,12 @@ async function resolveNodesForProfile(profile, env) {
 // --- 主请求处理函数 ---
 export async function onRequest(context) {
     const { request, env } = context;
-    const { url } = request;
-    const { pathname } = new URL(url);
-    const pathSegments = pathname.split('/').filter(Boolean); // e.g., ['api', 'subscribe', '123']
-    
-    // Cloudflare Pages Functions a little different, the filename is the base path.
-    // So for /api/[[path]].js, all pathSegments will start after /api/
-    const resource = pathSegments[1];
-    const id = pathSegments[2];
+    const url = new URL(request.url);
+
+    // 【核心修正】使用 context.params.path 来正确处理路由
+    const pathSegments = context.params.path;
+    const resource = pathSegments[0]; // 对于 /api/nodes, resource 是 "nodes"
+    const id = pathSegments[1];       // 对于 /api/nodes/123, id 是 "123"
 
     // --- 公共路由 (无需认证) ---
     if (resource === 'subscribe' && id) {
