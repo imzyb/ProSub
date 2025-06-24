@@ -10,12 +10,15 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'save']);
-const formData = ref({ name: '', url: '' });
+
+const getInitialState = () => ({ name: '', url: '' });
+const formData = ref(getInitialState());
+
 const isEditing = computed(() => !!(props.node && props.node.id));
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    formData.value = isEditing.value ? { ...props.node } : { name: '', url: '' };
+    formData.value = isEditing.value ? { ...props.node } : getInitialState();
   }
 });
 
@@ -36,16 +39,16 @@ function handleSubmit() {
 
 <template>
   <div v-if="show" class="modal-backdrop" @click="emit('close')">
-    <div class="modal-content" @click.stop>
-      <h3>{{ isEditing ? '编辑节点' : '新增节点' }}</h3>
-      <form @submit.prevent="handleSubmit" id="node-editor-form">
+    <div class="modal-content card" @click.stop>
+      <h2 class="modal-title">{{ isEditing ? '编辑节点' : '新增节点' }}</h2>
+      <form @submit.prevent="handleSubmit" id="node-editor-form" class="modal-form">
         <div class="form-group">
           <label for="node-name">名称</label>
-          <input id="node-name" v-model="formData.name" type="text" placeholder="节点或订阅名称" />
+          <input id="node-name" v-model="formData.name" type="text" placeholder="节点或订阅名称" required />
         </div>
         <div class="form-group">
           <label for="node-url">URL</label>
-          <input id="node-url" v-model="formData.url" type="text" placeholder="粘贴订阅链接或节点分享链接" />
+          <input id="node-url" v-model="formData.url" type="text" placeholder="粘贴订阅链接或节点分享链接" required />
         </div>
       </form>
       <div class="modal-actions">
@@ -60,11 +63,48 @@ function handleSubmit() {
 </template>
 
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
-.modal-content { background: var(--color-surface); padding: 2rem; border-radius: var(--border-radius); width: 100%; max-width: 500px; box-shadow: var(--shadow-md); border: 1px solid var(--color-border);}
-h3 { font-size: 1.25rem; font-weight: 600; margin-top: 0; margin-bottom: 1.5rem; }
-form { display: flex; flex-direction: column; gap: 1.5rem; }
-.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-.form-group input { width: 100%; font-size: 1rem; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+}
+
+.modal-title {
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
 </style>
