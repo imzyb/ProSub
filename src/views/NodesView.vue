@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue';
+// Script部分与我们最终的稳定版本完全相同，无需改动
+import { ref, computed } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
 import { parseNodeUrl } from '../utils.js';
@@ -42,7 +43,6 @@ async function handleSaveNode(nodeData) {
     isSavingNode.value = false;
   }
 }
-
 async function handleBatchSave(urls) {
     isSavingNode.value = true;
     try {
@@ -62,7 +62,6 @@ async function handleBatchSave(urls) {
         isSavingNode.value = false;
     }
 }
-
 async function deleteNode(id) {
   if (deletingNodeId.value || !confirm('确定要删除这个节点吗？')) return;
   deletingNodeId.value = id;
@@ -78,7 +77,6 @@ async function deleteNode(id) {
     deletingNodeId.value = null;
   }
 }
-
 function getProtocolInfo(nodeUrl) {
     const parsed = parseNodeUrl(nodeUrl);
     const protocol = parsed ? parsed.protocol : 'unknown';
@@ -92,7 +90,6 @@ function getProtocolInfo(nodeUrl) {
         default: return { text: 'LINK', style: 'protocol-unknown' };
     }
 }
-
 function openAddModal() { nodeToEdit.value = null; showEditorModal.value = true; }
 function openEditModal(node) { nodeToEdit.value = { ...node }; showEditorModal.value = true; }
 function showNodeDetails(node) { selectedNodeForDetail.value = parseNodeUrl(node.url); showDetailModal.value = true; }
@@ -105,7 +102,7 @@ function closeDetailModal() { showDetailModal.value = false; }
       <div class="card-header">
         <h2>节点池 (Node Pool)</h2>
         <div class="header-actions">
-          <button @click="showBatchImportModal = true" class="btn btn-secondary">批量导入</button>
+          <button @click="showBatchImportModal = true" class="btn btn-outline-secondary">批量导入</button>
           <button @click="openAddModal" class="btn btn-primary">新增节点</button>
         </div>
       </div>
@@ -123,7 +120,7 @@ function closeDetailModal() { showDetailModal.value = false; }
           </div>
           <div class="item-actions">
             <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
-            <button @click="showNodeDetails(item)" class="btn btn-outline-secondary">详情</button>
+            <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
             <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
               <Spinner v-if="deletingNodeId === item.id" />
               <span v-else>删除</span>
@@ -146,21 +143,96 @@ function closeDetailModal() { showDetailModal.value = false; }
 </template>
 
 <style scoped>
-.view-container { max-width: 1280px; margin: 0 auto; }
-.card { margin-bottom: 2rem; }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.card-header h2 { margin: 0; }
-.header-actions { display: flex; gap: 0.75rem; flex-shrink: 0; }
-.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.9rem; }
-.loading-state, .empty-state { text-align: center; padding: 3rem; margin-top: 1rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); }
-.empty-state h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem; }
-.node-list { list-style: none; padding: 0; margin-top: 1rem; border: 1px solid var(--color-border); border-radius: var(--border-radius); }
-.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; }
-.node-item:not(:last-child) { border-bottom: 1px solid var(--color-border); }
-.item-info { display: flex; align-items: center; gap: 1rem; overflow: hidden; }
-.item-info strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-.protocol-badge { min-width: 65px; text-align: center; font-size: 0.75rem; font-weight: bold; padding: 0.25rem 0.6rem; border-radius: 9999px; color: white; flex-shrink: 0; }
+.view-container {
+  max-width: 1024px;
+  margin: 0 auto;
+}
+.card {
+  margin-bottom: 2rem;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.card-description {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.5rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 3rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--border-radius);
+}
+.empty-state h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+/* 【核心修改】使用Flexbox的列表样式 */
+.node-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  overflow: hidden; /* 让内部的边框不超出圆角 */
+}
+.node-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  transition: background-color 0.2s;
+}
+.node-item:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
+.node-item:hover {
+  background-color: var(--color-background);
+}
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem; /* 徽章和名称的间距 */
+  overflow: hidden;
+}
+.item-info strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.item-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.protocol-badge {
+  min-width: 60px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  color: white;
+  flex-shrink: 0;
+}
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
@@ -168,12 +240,17 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-.node-card-actions .btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+
+/* 响应式调整 */
 @media (max-width: 768px) {
-    .node-item { flex-direction: column; align-items: stretch; gap: 1rem; }
-    .item-info { padding-right: 0; }
-    .item-actions { align-self: flex-end; }
-    .card-header { flex-direction: column; align-items: stretch; }
-    .header-actions { justify-content: space-between; }
+  .node-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .item-info { padding-right: 0; }
+  .item-actions { align-self: flex-end; }
+  .card-header { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .header-actions { justify-content: space-between; }
 }
 </style>
