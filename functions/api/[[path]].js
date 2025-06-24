@@ -135,10 +135,10 @@ async function resolveNodesForProfile(profile, env) {
 // --- 主请求处理函数 ---
 export async function onRequest(context) {
     const { request, env } = context;
-    const url = new URL(request.url);
     const pathSegments = context.params.path;
     const resource = pathSegments[0];
     const id = pathSegments[1];
+    const url = new URL(request.url);
 
     // --- 主订阅路由，智能调度中心 ---
     if (resource === 'subscribe' && id) {
@@ -225,7 +225,6 @@ export async function onRequest(context) {
         headers.append('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
         return new Response(JSON.stringify({ success: true }), { headers });
     }
-    
     const handleCrud = async (kvKey, request, id) => {
         let data = await env.KV.get(kvKey);
         let items = data ? JSON.parse(data) : [];
