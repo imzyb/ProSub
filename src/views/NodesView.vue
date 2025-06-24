@@ -110,13 +110,15 @@ function closeDetailModal() { showDetailModal.value = false; }
       
       <div v-if="store.isInitialLoading" class="loading-state">正在加载节点...</div>
       
-      <div v-else-if="store.nodes.length > 0" class="node-grid">
-        <div v-for="item in store.nodes" :key="item.id" class="node-card">
-          <div class="node-card-info">
-            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">{{ getProtocolInfo(item.url).text }}</span>
-            <strong class="node-name" :title="item.name">{{ item.name }}</strong>
+      <ul v-else-if="store.nodes.length > 0" class="node-list">
+        <li v-for="item in store.nodes" :key="item.id" class="node-item">
+          <div class="item-info">
+            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
+              {{ getProtocolInfo(item.url).text }}
+            </span>
+            <strong :title="item.name">{{ item.name }}</strong>
           </div>
-          <div class="node-card-actions">
+          <div class="item-actions">
             <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
             <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
             <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
@@ -124,9 +126,9 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </div>
-      </div>
-
+        </li>
+      </ul>
+      
       <div v-else class="empty-state">
         <h3>空空如也</h3>
         <p>这里还没有任何节点或订阅。请添加您的第一个！</p>
@@ -142,7 +144,7 @@ function closeDetailModal() { showDetailModal.value = false; }
 
 <style scoped>
 .view-container {
-  max-width: 1400px;
+  max-width: 1024px;
   margin: 0 auto;
 }
 .card {
@@ -154,9 +156,6 @@ function closeDetailModal() { showDetailModal.value = false; }
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
-}
-.card-header h2 {
-  margin: 0;
 }
 .header-actions {
   display: flex;
@@ -185,55 +184,46 @@ function closeDetailModal() { showDetailModal.value = false; }
   margin-bottom: 0.5rem;
 }
 
-/* 【核心】使用Grid网格布局 */
-.node-grid {
-  display: grid;
-  /* 响应式网格：自动填充，每列最小350px，最大1fr */
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1rem;
+/* 【核心修改】恢复为单列列表，并让每一项都是上下布局 */
+.node-list {
+  list-style: none;
+  padding: 0;
   margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
-
-.node-card {
-  background-color: var(--color-surface);
+.node-item {
+  display: flex;
+  flex-direction: column; /* 强制垂直堆叠 */
+  align-items: stretch; /* 拉伸对齐 */
+  gap: 1rem; /* 增加项目间距 */
+  padding: 1.5rem;
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
-  padding: 1rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.2s;
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
-.node-card:hover {
-  border-color: var(--primary);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-.node-card-info {
+.item-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   overflow: hidden;
 }
-.node-name {
-  font-weight: 600;
+.item-info strong {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--text-primary);
 }
-.node-card-actions {
+.item-actions {
   display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
+  gap: 0.75rem;
+  align-self: flex-end; /* 让按钮组在自己的行内靠右对齐 */
 }
-.node-card-actions .btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
-}
-
 .protocol-badge {
-  min-width: 60px;
+  min-width: 65px;
   text-align: center;
   font-size: 0.75rem;
   font-weight: bold;
@@ -249,22 +239,4 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-
-@media (max-width: 768px) {
-  .node-grid {
-    /* 在小屏幕上，强制变为单列布局，使其像列表 */
-    grid-template-columns: 1fr;
-  }
-  .node-card {
-    flex-direction: column; /* 【核心修正】将卡片内部变为垂直堆叠 */
-    align-items: stretch;   /* 让内部元素宽度撑满 */
-    gap: 1rem;            /* 增加信息和按钮之间的垂直间距 */
-  }
-  .node-card-info {
-    padding-right: 0; /* 移除右侧内边距 */
-  }
-  .node-card-actions {
-    justify-content: flex-end; /* 让按钮组在自己的行内靠右对齐 */
-  }
-}
 </style>
