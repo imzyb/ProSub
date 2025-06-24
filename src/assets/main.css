@@ -1,36 +1,24 @@
-/* src/assets/main.css */
-
-/* 1. 定义全局设计语言 (CSS 变量) */
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-
-  --color-background: #f4f7f9; /* 更柔和的背景灰 */
-  --color-surface: #ffffff;    /* 卡片等表面颜色 */
-  --color-border: #e5e7eb;     /* 边框和分割线颜色 */
-  
-  --text-primary: #1f2937;      /* 主要文字颜色 */
-  --text-secondary: #6b7280;   /* 次要文字颜色 */
+  --color-background: #f4f7f9;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
   --text-light: #ffffff;
-  
-  --primary: #4f46e5;         /* 主题色 - 鲜艳的靛蓝色 */
+  --primary: #4f46e5;
   --primary-hover: #4338ca;
-  --danger: #dc3545;
+  --danger: #ef4444;
   --success: #16a34a;
   --warning: #f59e0b;
   --warning-text: #1f2937;
   --secondary: #6c757d;
-
-  --border-radius: 0.5rem; /* 8px 圆角 */
+  --border-radius: 0.5rem;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
-
-/* 2. 全局基础样式重置 */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
+*, *::before, *::after { box-sizing: border-box; }
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -39,16 +27,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-#app {
-  min-height: 100vh;
-}
-
-h1, h2, h3, p {
-  margin: 0;
-}
-
-/* 3. 全局可复用组件样式 */
+#app { min-height: 100vh; }
 .card {
   background-color: var(--color-surface);
   border-radius: var(--border-radius);
@@ -56,8 +35,26 @@ h1, h2, h3, p {
   box-shadow: var(--shadow-md);
   border: 1px solid var(--color-border);
 }
-
-/* 4. 统一的按钮系统 */
+h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+}
+input[type="text"], input[type="url"], input[type="password"], select, textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: var(--border-radius);
+    background-color: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgb(79 70 229 / 0.2);
+}
 .btn {
   padding: 0.6rem 1.2rem;
   border: 1px solid transparent;
@@ -72,22 +69,10 @@ h1, h2, h3, p {
   gap: 0.5rem;
   white-space: nowrap;
 }
-
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-  transform: none;
-  box-shadow: none;
-}
-
+.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:disabled { cursor: not-allowed; opacity: 0.6; transform: none; box-shadow: none; }
 .btn-primary { background-color: var(--primary); color: var(--text-light); }
 .btn-primary:hover { background-color: var(--primary-hover); }
-
 .btn-secondary { background-color: var(--secondary); color: var(--text-light); }
 .btn-danger { background-color: var(--danger); color: var(--text-light); }
 .btn-warning { background-color: var(--warning); color: var(--warning-text); }
@@ -97,19 +82,4 @@ h1, h2, h3, p {
     color: var(--text-secondary);
     border-color: var(--color-border);
 }
-.btn-outline-secondary:hover {
-    background-color: var(--color-background);
-    border-color: var(--text-secondary);
-    color: var(--text-primary);
-}
-/* 统一卡片头部内次要按钮的风格为描边按钮 */
-.card-header .btn-secondary {
-  background-color: var(--color-surface);
-  color: var(--text-secondary);
-  border: 1px solid var(--color-border);
-}
-.card-header .btn-secondary:hover {
-  background-color: var(--color-background);
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
-}
+.btn-outline-secondary:hover { background-color: var(--color-background); border-color: var(--text-secondary); color: var(--text-primary); }

@@ -9,13 +9,10 @@ const props = defineProps({
   node: Object,
   isSaving: Boolean,
 });
-
 const emit = defineEmits(['close', 'save']);
 const toast = useToast();
-
 const getInitialState = () => ({ name: '', url: '' });
 const formData = ref(getInitialState());
-
 const isEditing = computed(() => !!(props.node && props.node.id));
 
 watch(() => props.show, (newVal) => {
@@ -23,7 +20,6 @@ watch(() => props.show, (newVal) => {
     formData.value = isEditing.value ? { ...props.node } : getInitialState();
   }
 });
-
 watch(() => formData.value.url, (newUrl) => {
   if (newUrl && !formData.value.name) {
     const parsed = parseNodeUrl(newUrl);
@@ -32,7 +28,6 @@ watch(() => formData.value.url, (newUrl) => {
     }
   }
 });
-
 function handleSubmit() {
   if (!formData.value.url.trim()) {
     toast.warning('URL 不能为空');
@@ -58,7 +53,7 @@ function handleSubmit() {
         </div>
       </form>
       <div class="modal-actions">
-        <button @click="emit('close')" class="btn btn-outline-secondary">取消</button>
+        <button type="button" @click="emit('close')" class="btn btn-outline-secondary">取消</button>
         <button type="submit" form="node-editor-form" class="btn btn-primary" :disabled="isSaving">
           <Spinner v-if="isSaving" />
           <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
@@ -80,11 +75,10 @@ function handleSubmit() {
   z-index: 100;
   padding: 1rem;
 }
-/* 应用全局的.card样式，但覆盖外边距 */
 .modal-content {
   width: 100%;
   max-width: 500px;
-  margin-bottom: 0;
+  margin-bottom: 0; /* 继承自.card，但我们在这里不需要下边距 */
 }
 .modal-title {
   padding-bottom: 1rem;
@@ -101,10 +95,6 @@ function handleSubmit() {
   margin-bottom: 0.5rem;
   font-weight: 500;
   color: var(--text-primary);
-}
-/* 输入框将继承main.css的全局样式 */
-.form-group input {
-  font-size: 1rem;
 }
 .modal-actions {
   display: flex;
