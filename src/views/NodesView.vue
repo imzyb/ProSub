@@ -1,6 +1,6 @@
 <script setup>
 // Script部分与我们最终的稳定版本完全相同，无需改动
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
 import { parseNodeUrl } from '../utils.js';
@@ -110,15 +110,13 @@ function closeDetailModal() { showDetailModal.value = false; }
       
       <div v-if="store.isInitialLoading" class="loading-state">正在加载节点...</div>
       
-      <ul v-else-if="store.nodes.length > 0" class="node-list">
-        <li v-for="item in store.nodes" :key="item.id" class="node-item">
-          <div class="item-info">
-            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
-              {{ getProtocolInfo(item.url).text }}
-            </span>
-            <strong :title="item.name">{{ item.name }}</strong>
+      <div v-else-if="store.nodes.length > 0" class="node-grid">
+        <div v-for="item in store.nodes" :key="item.id" class="node-card">
+          <div class="node-card-info">
+            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">{{ getProtocolInfo(item.url).text }}</span>
+            <strong class="node-name" :title="item.name">{{ item.name }}</strong>
           </div>
-          <div class="item-actions">
+          <div class="node-card-actions">
             <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
             <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
             <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
@@ -126,9 +124,9 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </li>
-      </ul>
-      
+        </div>
+      </div>
+
       <div v-else class="empty-state">
         <h3>空空如也</h3>
         <p>这里还没有任何节点或订阅。请添加您的第一个！</p>
@@ -144,7 +142,7 @@ function closeDetailModal() { showDetailModal.value = false; }
 
 <style scoped>
 .view-container {
-  max-width: 1024px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 .card {
@@ -156,6 +154,9 @@ function closeDetailModal() { showDetailModal.value = false; }
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+}
+.card-header h2 {
+  margin: 0;
 }
 .header-actions {
   display: flex;
@@ -184,45 +185,53 @@ function closeDetailModal() { showDetailModal.value = false; }
   margin-bottom: 0.5rem;
 }
 
-/* 【核心修改】使用Flexbox的列表样式 */
-.node-list {
-  list-style: none;
-  padding: 0;
+/* 【核心】使用Grid网格布局 */
+.node-grid {
+  display: grid;
+  /* 响应式网格：自动填充，每列最小350px，最大1fr */
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1rem;
   margin-top: 1.5rem;
+}
+
+.node-card {
+  background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
-  overflow: hidden; /* 让内部的边框不超出圆角 */
-}
-.node-item {
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
 }
-.node-item:not(:last-child) {
-  border-bottom: 1px solid var(--color-border);
+.node-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
-.node-item:hover {
-  background-color: var(--color-background);
-}
-.item-info {
+.node-card-info {
   display: flex;
   align-items: center;
-  gap: 1rem; /* 徽章和名称的间距 */
+  gap: 0.75rem;
   overflow: hidden;
 }
-.item-info strong {
+.node-name {
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 500;
 }
-.item-actions {
+.node-card-actions {
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
 }
+.node-card-actions .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
 .protocol-badge {
   min-width: 60px;
   text-align: center;
@@ -240,17 +249,4 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .node-item {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-  }
-  .item-info { padding-right: 0; }
-  .item-actions { align-self: flex-end; }
-  .card-header { flex-direction: column; align-items: stretch; gap: 1rem; }
-  .header-actions { justify-content: space-between; }
-}
 </style>
