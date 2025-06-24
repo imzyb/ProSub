@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
+import Spinner from '../components/Spinner.vue';
 
 const toast = useToast();
 const fileInput = ref(null);
@@ -10,7 +11,6 @@ async function backupData() {
   store.isActionLoading = true;
   toast.info("正在准备备份数据...");
   try {
-      // 直接从store获取最新数据进行备份
       if (store.nodes.length === 0 && store.profiles.length === 0) {
         toast.info('没有数据可备份。');
         return;
@@ -44,7 +44,6 @@ function triggerFileUpload() {
 function handleFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = async (e) => {
     store.isActionLoading = true;
@@ -53,31 +52,16 @@ function handleFileSelect(event) {
       if (!Array.isArray(restoredData.nodes) || !Array.isArray(restoredData.profiles)) {
         throw new Error('无效的备份文件格式。');
       }
-      
       const savePromises = [
-        fetch('/api/nodes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(restoredData.nodes)
-        }),
-        fetch('/api/profiles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(restoredData.profiles)
-        })
+        fetch('/api/nodes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(restoredData.nodes) }),
+        fetch('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(restoredData.profiles) })
       ];
-
       const responses = await Promise.all(savePromises);
       for (const response of responses) {
         if (!response.ok) throw new Error('向服务器保存恢复数据时出错。');
       }
-      
       toast.success('数据恢复成功！正在重新加载...');
-      
-      setTimeout(() => {
-          store.fetchData(); // 重新获取数据即可，无需刷新页面
-      }, 1500);
-
+      setTimeout(() => store.fetchData(), 1500);
     } catch (error) {
       toast.error(`恢复失败: ${error.message}`);
     } finally {
@@ -125,31 +109,32 @@ function handleFileSelect(event) {
 .view-header h1 { font-size: 1.75rem; font-weight: 600; }
 .settings-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
     gap: 2rem;
-}
-.card h2 {
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--color-border);
 }
 .card-description {
     color: var(--text-secondary);
     font-size: 0.9rem;
-    margin-bottom: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
 }
 .actions-group {
     display: flex;
     gap: 1rem;
+    margin-top: 1rem;
 }
 .info-group {
     background-color: var(--color-background);
-    padding: 1rem;
+    padding: 1rem 1.5rem;
     border-radius: var(--border-radius);
     font-size: 0.9rem;
+    border: 1px solid var(--color-border);
 }
 .info-group h4 {
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
 }
 .info-group p {
     color: var(--text-secondary);

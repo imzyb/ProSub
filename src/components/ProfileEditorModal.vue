@@ -80,35 +80,31 @@ function handleSubmit() {
 <template>
   <div v-if="show" class="modal-backdrop" @click="emit('close')">
     <div class="modal-content card" @click.stop>
-      <h3>{{ isEditing ? '编辑输出配置' : '新增输出配置' }}</h3>
+      <h2 class="modal-title">{{ isEditing ? '编辑输出配置' : '新增输出配置' }}</h2>
       <form @submit.prevent="handleSubmit" id="profile-editor-form">
-        <div class="form-group">
-          <label for="profile-name">配置名称</label>
-          <input id="profile-name" v-model="formData.name" type="text" placeholder="例如: 家庭Clash" required/>
-        </div>
         </form>
       <div class="modal-actions">
         <button type="button" @click="emit('close')" class="btn btn-outline-secondary">取消</button>
         <button type="submit" form="profile-editor-form" class="btn btn-primary" :disabled="isSaving">
-          <Spinner v-if="isSaving" />
-          <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
+            <Spinner v-if="isSaving" />
+            <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
         </button>
       </div>
     </div>
   </div>
 </template>
-
 <style scoped>
 .modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
-.modal-content { max-width: 700px; max-height: 90vh; display: flex; flex-direction: column; }
-h3 { margin-top: 0; margin-bottom: 1.5rem; }
+.modal-content { max-width: 700px; max-height: 90vh; display: flex; flex-direction: column; padding: 1.5rem 2rem 2rem 2rem; margin: 0; }
+.modal-title { font-size: 1.25rem; font-weight: 600; padding-bottom: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
 form { overflow-y: auto; padding-right: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
-fieldset { border: 1px solid #e5e7eb; padding: 1rem; border-radius: 0.5rem; }
+fieldset { border: 1px solid var(--color-border); padding: 1rem 1.5rem; border-radius: var(--border-radius); }
+legend { padding: 0 0.5rem; font-weight: 600; }
 .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
-.checkbox-item { display: flex; align-items: center; gap: 0.75rem; }
-.checkbox-item label { display: flex; align-items: center; gap: 0.5rem; font-weight: normal; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
-.selection-actions { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
+.node-selection { max-height: 180px; }
+.checkbox-item, .checkbox-label { display: flex; align-items: center; gap: 0.75rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); flex-shrink: 0; }
+.selection-actions { display: flex; gap: 1rem; margin-bottom: 1rem; }
 .btn-link { background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; font-size: 0.85rem; }
 .protocol-badge { font-size: 0.7rem; font-weight: bold; padding: 0.1rem 0.4rem; border-radius: 9999px; color: white; }
 .protocol-vmess { background-color: #10b981; }
@@ -118,9 +114,6 @@ fieldset { border: 1px solid #e5e7eb; padding: 1rem; border-radius: 0.5rem; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-@media (max-width: 768px) {
-  .modal-content { padding: 1.5rem; width: 95%; }
-  form { gap: 1rem; }
-  .checkbox-grid { grid-template-columns: 1fr; }
-}
+@media (max-width: 768px) { .checkbox-grid { grid-template-columns: 1fr; } }
 </style>
+
