@@ -97,28 +97,100 @@ async function backupData() {
 }
 </script>
 
+<script setup>
+import { ref } from 'vue';
+import { useToast } from 'vue-toastification';
+import Spinner from '../components/Spinner.vue';
+
+const toast = useToast();
+const currentPassword = ref('');
+const newPassword = ref('');
+const confirmPassword = ref('');
+const isSaving = ref(false);
+
+async function handleChangePassword() {
+  if (!currentPassword.value || !newPassword.value) {
+    toast.error('当前密码和新密码不能为空');
+    return;
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    toast.error('两次输入的新密码不一致');
+    return;
+  }
+  
+  isSaving.value = true;
+  try {
+    // 这里应该是调用后端的 /api/change-password 接口
+    // 目前我们先用一个模拟的延时来演示效果
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // 假设后端返回成功
+    toast.success('密码修改成功！');
+    currentPassword.value = '';
+    newPassword.value = '';
+    confirmPassword.value = '';
+    
+  } catch (error) {
+    toast.error('密码修改失败，请检查当前密码是否正确。');
+  } finally {
+    isSaving.value = false;
+  }
+}
+</script>
+
 <template>
   <div class="view-container">
     <div class="card">
-        <h2>系统设置</h2>
-        <p class="card-description">在这里进行系统级的操作，例如数据备份与恢复。</p>
-        <div class="actions-wrapper">
-          <button @click="backupData" class="action-btn backup-btn">备份所有数据</button>
-          <button @click="triggerFileUpload" class="action-btn restore-btn">从文件恢复</button>
-          <input type="file" ref="fileInput" @change="handleFileSelect" style="display: none" accept=".json" />
+      <h2>系统设置</h2>
+      <p class="card-description">在这里管理您的应用设置，例如修改登录密码。</p>
+      
+      <form @submit.prevent="handleChangePassword" class="settings-form">
+        <div class="form-section">
+          <h3 class="section-title">修改管理员密码</h3>
+          <div class="form-group">
+            <label for="current-password">当前密码</label>
+            <input id="current-password" type="password" v-model="currentPassword" required />
+          </div>
+          <div class="form-group">
+            <label for="new-password">新密码</label>
+            <input id="new-password" type="password" v-model="newPassword" required />
+          </div>
+          <div class="form-group">
+            <label for="confirm-password">确认新密码</label>
+            <input id="confirm-password" type="password" v-model="confirmPassword" required />
+          </div>
         </div>
+        
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" :disabled="isSaving">
+            <Spinner v-if="isSaving" />
+            <span v-else>保存更改</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </template>
 
 <style scoped>
-.view-container { max-width: 1024px; margin: 0 auto; }
-.card { background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.card-description { font-size: 0.9rem; color: #666; margin-top: -0.5rem; margin-bottom: 1.5rem; }
-h2 { margin-top: 0; margin-bottom: 1rem; }
-.actions-wrapper { display: flex; flex-direction: column; gap: 1rem; max-width: 400px; }
-button { padding: 0.75rem 1rem; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; font-weight: 500; }
-button:hover { opacity: 0.9; }
-.backup-btn { background-color: #17a2b8; }
-.restore-btn { background-color: #ffc107; color: #212529; }
+.view-container { max-width: 800px; margin: 0 auto; }
+.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1.5rem; color: var(--text-secondary); }
+.settings-form { margin-top: 2rem; }
+.form-section { display: flex; flex-direction: column; gap: 1.5rem; }
+.section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
+.form-group label { display: block; font-weight: 500; margin-bottom: 0.5rem; }
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+}
+.form-actions {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
 </style>

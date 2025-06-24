@@ -105,65 +105,99 @@ function closeDetailModal() { showDetailModal.value = false; }
       <div class="card-header">
         <h2>节点池 (Node Pool)</h2>
         <div class="header-actions">
-          <button @click="showBatchImportModal = true" class="btn-secondary">批量导入</button>
-          <button @click="openAddModal" class="btn-primary">新增节点</button>
+          <button @click="showBatchImportModal = true" class="btn btn-secondary">批量导入</button>
+          <button @click="openAddModal" class="btn btn-primary">新增节点</button>
         </div>
       </div>
       <p class="card-description">在这里管理您的所有节点，包括单个节点链接和远程订阅链接。</p>
       
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
-      
-      <ul v-else-if="store.nodes.length > 0" class="node-list">
-        <li v-for="item in store.nodes" :key="item.id" class="node-item">
-          <div class="item-info">
-            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
-              {{ getProtocolInfo(item.url).text }}
-            </span>
-            <strong>{{ item.name }}</strong>
+      <div v-else-if="store.nodes.length > 0" class="node-grid">
+        <div v-for="item in store.nodes" :key="item.id" class="node-card">
+          <div class="node-card-header">
+            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">{{ getProtocolInfo(item.url).text }}</span>
+            <strong class="node-name" :title="item.name">{{ item.name }}</strong>
           </div>
-          <div class="item-actions">
-            <button @click="openEditModal(item)" class="btn-warning">编辑</button>
-            <button @click="showNodeDetails(item)" class="btn-secondary">详情</button>
-            <button @click="deleteNode(item.id)" class="btn-danger" :disabled="deletingNodeId === item.id">
+          <div class="node-card-actions">
+            <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
+            <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
+            <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
               <Spinner v-if="deletingNodeId === item.id" />
               <span v-else>删除</span>
             </button>
           </div>
-        </li>
-      </ul>
-
-      <div v-else class="empty-state">
-        <h3>空空如也</h3>
-        <p>这里还没有任何节点或订阅。请添加您的第一个！</p>
-        <button @click="openAddModal" class="btn-primary mt-4">新增节点</button>
+        </div>
       </div>
+      <div v-else class="empty-state">...</div>
     </div>
-
-    <BatchImportModal :show="showBatchImportModal" @close="showBatchImportModal = false" @save="handleBatchSave" />
-    <NodeEditorModal :show="showEditorModal" :node="nodeToEdit" :is-saving="isSavingNode" @close="showEditorModal = false" @save="handleSaveNode" />
-    <NodeDetailModal :show="showDetailModal" :node="selectedNodeForDetail" @close="closeDetailModal" />
-  </div>
+    </div>
 </template>
 
 <style scoped>
-/* 这里的样式是为 ul 和 v-for 设计的，是稳定版本 */
-.view-container { max-width: 1280px; margin: 0 auto; }
-.card { background: #fff; border-radius: 0.5rem; padding: 2rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07); border: 1px solid #e5e7eb; }
+.view-container { max-width: 1400px; margin: 0 auto; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.card-header h2 { margin: 0; font-size: 1.25rem; font-weight: 600; }
-.header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
-.card-description { font-size: 0.9rem; color: #6b7280; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
-.loading-text, .empty-state { text-align: center; padding: 3rem; color: #6b7280; border: 2px dashed #e5e7eb; border-radius: 0.5rem; margin-top: 1rem;}
-.empty-state h3 { font-size: 1.1rem; color: #1f2937; margin: 0 0 0.5rem 0; }
-.empty-state p { margin: 0 0 1rem 0; font-size: 0.9rem; }
-.mt-4 { margin-top: 1rem; }
-.node-list { list-style: none; padding: 0; margin-top: 1rem; }
-.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb; }
-.node-item:last-child { border-bottom: none; }
-.item-info { display: flex; align-items: center; gap: 0.75rem; word-break: break-all; padding-right: 1rem; }
-.item-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-button { padding: 0.5rem 1rem; border-radius: 0.5rem; }
-.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; color: white; }
+.card-description {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.5rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 3rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--border-radius);
+}
+.empty-state h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;}
+.node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.node-card {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+.node-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.node-card-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+.node-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.protocol-badge {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  color: white;
+}
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
@@ -171,11 +205,7 @@ button { padding: 0.5rem 1rem; border-radius: 0.5rem; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-@media (max-width: 768px) {
-    .node-item { flex-direction: column; align-items: stretch; gap: 0.75rem; }
-    .item-info { padding-right: 0; font-size: 0.9rem; }
-    .item-actions { justify-content: flex-end; border-top: 1px solid #e5e7eb; padding-top: 0.75rem; margin-top: 0.5rem; }
-    .card-header { flex-direction: column; align-items: stretch; gap: 1rem;}
-    .header-actions { justify-content: space-between; }
-}
+
+/* 按钮尺寸统一 */
+.node-card-actions .btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
 </style>
