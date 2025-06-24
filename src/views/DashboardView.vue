@@ -7,7 +7,11 @@ import { useToast } from 'vue-toastification';
 const toast = useToast();
 
 onMounted(async () => {
-    store.fetchData();
+    try {
+        await store.fetchData();
+    } catch (e) {
+        toast.error(e.message || '数据加载失败');
+    }
 });
 
 async function handleLogout() {
@@ -23,52 +27,94 @@ async function handleLogout() {
 <template>
   <div class="dashboard-layout">
     <header class="dashboard-header">
-      <div class="header-content">
+      <div class="header-main">
         <h1 class="logo">ProSub</h1>
-        <nav class="dashboard-nav">
-          <RouterLink to="/dashboard/nodes" class="nav-link">节点管理</RouterLink>
-          <RouterLink to="/dashboard/profiles" class="nav-link">输出配置</RouterLink>
-          <RouterLink to="/dashboard/settings" class="nav-link">系统设置</RouterLink>
-        </nav>
+        <button @click="handleLogout" class="btn btn-outline-secondary logout-btn">登出</button>
       </div>
-      <button @click="handleLogout" class="btn btn-outline-secondary">登出</button>
+      <nav class="dashboard-nav">
+        <RouterLink to="/dashboard/nodes" class="nav-link">节点管理</RouterLink>
+        <RouterLink to="/dashboard/profiles" class="nav-link">输出配置</RouterLink>
+        <RouterLink to="/dashboard/settings" class="nav-link">系统设置</RouterLink>
+      </nav>
     </header>
     <main class="dashboard-main-content">
       <RouterView />
     </main>
   </div>
 </template>
+
 <style scoped>
-.dashboard-layout { display: flex; flex-direction: column; min-height: 100vh; }
+.dashboard-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
 .dashboard-header {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  padding: 0 1.5rem;
+  background: var(--color-surface, #ffffff);
+  border-bottom: 1px solid var(--color-border, #e9ecef);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+}
+.header-main {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 64px;
-  position: sticky; top: 0; z-index: 10;
-  box-shadow: var(--shadow-sm);
+  padding: 0 1.5rem;
 }
-.header-content { display: flex; align-items: center; }
-.logo { font-size: 1.5rem; font-weight: 700; margin: 0; }
-.dashboard-nav { display: flex; margin-left: 2.5rem; }
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+.dashboard-nav {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0 1.5rem;
+  border-top: 1px solid var(--color-border, #e9ecef);
+}
 .nav-link {
-  padding: 0 1rem;
-  line-height: 64px;
+  padding: 0.75rem 0.25rem;
   text-decoration: none;
   color: var(--text-secondary);
   font-weight: 500;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
 }
-.nav-link:hover { color: var(--text-primary); }
-.router-link-exact-active { color: var(--primary); border-bottom-color: var(--primary); }
-.dashboard-main-content { padding: 2rem; }
+.nav-link:hover {
+  color: var(--text-primary);
+}
+.router-link-exact-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+.dashboard-main-content {
+  flex-grow: 1;
+  padding: 2rem;
+}
+
+/* 【核心修正】手机端的响应式样式 */
 @media (max-width: 768px) {
-  .dashboard-header { padding: 0 1rem; }
-  .dashboard-nav { display: none; }
-  .dashboard-main-content { padding: 1rem; }
+  .header-main {
+    height: 60px;
+    padding: 0 1rem;
+  }
+  .dashboard-nav {
+    width: 100%;
+    gap: 0;
+    padding: 0;
+  }
+  .nav-link {
+    flex-grow: 1;
+    text-align: center;
+    padding: 0.8rem 0.5rem;
+    font-size: 0.9rem;
+  }
+  .dashboard-main-content {
+    padding: 1rem;
+  }
 }
 </style>
