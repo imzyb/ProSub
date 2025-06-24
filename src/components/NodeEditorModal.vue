@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
 import Spinner from './Spinner.vue';
+import { useToast } from 'vue-toastification';
 import { parseNodeUrl } from '../utils.js';
 
 const props = defineProps({
@@ -10,6 +11,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'save']);
+const toast = useToast();
 
 const getInitialState = () => ({ name: '', url: '' });
 const formData = ref(getInitialState());
@@ -32,6 +34,10 @@ watch(() => formData.value.url, (newUrl) => {
 });
 
 function handleSubmit() {
+  if (!formData.value.url.trim()) {
+    toast.warning('URL 不能为空');
+    return;
+  }
   if (props.isSaving) return;
   emit('save', formData.value);
 }
@@ -44,7 +50,7 @@ function handleSubmit() {
       <form @submit.prevent="handleSubmit" id="node-editor-form" class="modal-form">
         <div class="form-group">
           <label for="node-name">名称</label>
-          <input id="node-name" v-model="formData.name" type="text" placeholder="节点或订阅名称" required />
+          <input id="node-name" v-model="formData.name" type="text" placeholder="节点或订阅名称（可自动识别）" />
         </div>
         <div class="form-group">
           <label for="node-url">URL</label>
@@ -52,7 +58,7 @@ function handleSubmit() {
         </div>
       </form>
       <div class="modal-actions">
-        <button type="button" @click="emit('close')" class="btn btn-outline-secondary">取消</button>
+        <button @click="emit('close')" class="btn btn-outline-secondary">取消</button>
         <button type="submit" form="node-editor-form" class="btn btn-primary" :disabled="isSaving">
           <Spinner v-if="isSaving" />
           <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
@@ -66,7 +72,7 @@ function handleSubmit() {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -74,42 +80,36 @@ function handleSubmit() {
   z-index: 100;
   padding: 1rem;
 }
-
-/* 使用.card样式，但覆盖一些边距 */
+/* 应用全局的.card样式，但覆盖外边距 */
 .modal-content {
   width: 100%;
   max-width: 500px;
   margin-bottom: 0;
 }
-
 .modal-title {
   padding-bottom: 1rem;
   margin-bottom: 1.5rem;
   border-bottom: 1px solid var(--color-border);
 }
-
 .modal-form {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
-
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
   color: var(--text-primary);
 }
-
-/* 输入框样式将继承自 main.css */
+/* 输入框将继承main.css的全局样式 */
 .form-group input {
   font-size: 1rem;
 }
-
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-top: 2rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--color-border);
