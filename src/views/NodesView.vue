@@ -110,15 +110,13 @@ function closeDetailModal() { showDetailModal.value = false; }
       
       <div v-if="store.isInitialLoading" class="loading-state">正在加载节点...</div>
       
-      <ul v-else-if="store.nodes.length > 0" class="node-list">
-        <li v-for="item in store.nodes" :key="item.id" class="node-item">
-          <div class="item-info">
-            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
-              {{ getProtocolInfo(item.url).text }}
-            </span>
-            <strong :title="item.name">{{ item.name }}</strong>
+      <div v-else-if="store.nodes.length > 0" class="node-grid">
+        <div v-for="item in store.nodes" :key="item.id" class="node-card">
+          <div class="node-card-info">
+            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">{{ getProtocolInfo(item.url).text }}</span>
+            <strong class="node-name" :title="item.name">{{ item.name }}</strong>
           </div>
-          <div class="item-actions">
+          <div class="node-card-actions">
             <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
             <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
             <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
@@ -126,30 +124,124 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </li>
-      </ul>
-      
+        </div>
+      </div>
+
       <div v-else class="empty-state">
         <h3>空空如也</h3>
         <p>这里还没有任何节点或订阅。请添加您的第一个！</p>
         <button @click="openAddModal" class="btn btn-primary" style="margin-top: 1rem;">新增节点</button>
       </div>
     </div>
-    </div>
+
+    <BatchImportModal :show="showBatchImportModal" @close="showBatchImportModal = false" @save="handleBatchSave" />
+    <NodeEditorModal :show="showEditorModal" :node="nodeToEdit" :is-saving="isSavingNode" @close="showEditorModal = false" @save="handleSaveNode" />
+    <NodeDetailModal :show="showDetailModal" :node="selectedNodeForDetail" @close="closeDetailModal" />
+  </div>
 </template>
+
 <style scoped>
-.view-container { max-width: 1024px; margin: 0 auto; }
-.card-header { display: flex; justify-content: space-between; align-items: center; }
-.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1.5rem; }
-.loading-state, .empty-state { text-align: center; padding: 3rem; margin-top: 1rem; border: 2px dashed var(--color-border); }
-.empty-state h3 { margin-bottom: 0.5rem; }
-.node-list { list-style: none; padding: 0; margin-top: 1.5rem; border: 1px solid var(--color-border); border-radius: var(--border-radius); overflow: hidden; }
-.node-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; }
-.node-item:not(:last-child) { border-bottom: 1px solid var(--color-border); }
-.item-info { display: flex; align-items: center; gap: 1rem; overflow: hidden; }
-.item-info strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-.item-actions { display: flex; gap: 0.5rem; }
-.protocol-badge { min-width: 60px; text-align: center; font-size: 0.75rem; font-weight: bold; padding: 0.25rem 0.6rem; border-radius: 9999px; color: white; }
+.view-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.card {
+  margin-bottom: 2rem;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.card-header h2 {
+  margin: 0;
+}
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.card-description {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.5rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 3rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--border-radius);
+}
+.empty-state h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+/* 【核心】使用Grid网格布局 */
+.node-grid {
+  display: grid;
+  /* 响应式网格：自动填充，每列最小350px，最大1fr */
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.node-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+.node-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.node-card-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+.node-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.node-card-actions .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.protocol-badge {
+  min-width: 60px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  color: white;
+  flex-shrink: 0;
+}
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }

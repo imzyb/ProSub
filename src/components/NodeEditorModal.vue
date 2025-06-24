@@ -52,7 +52,7 @@ function handleSubmit() {
         </div>
       </form>
       <div class="modal-actions">
-        <button @click="emit('close')" class="btn btn-outline-secondary">取消</button>
+        <button type="button" @click="emit('close')" class="btn btn-outline-secondary">取消</button>
         <button type="submit" form="node-editor-form" class="btn btn-primary" :disabled="isSaving">
           <Spinner v-if="isSaving" />
           <span v-else>{{ isEditing ? '更新' : '创建' }}</span>
@@ -75,9 +75,11 @@ function handleSubmit() {
   padding: 1rem;
 }
 
+/* 使用.card样式，但覆盖一些边距 */
 .modal-content {
   width: 100%;
   max-width: 500px;
+  margin-bottom: 0;
 }
 
 .modal-title {
@@ -97,6 +99,11 @@ function handleSubmit() {
   margin-bottom: 0.5rem;
   font-weight: 500;
   color: var(--text-primary);
+}
+
+/* 输入框样式将继承自 main.css */
+.form-group input {
+  font-size: 1rem;
 }
 
 .modal-actions {
