@@ -102,3 +102,14 @@ h1, h2, h3, p {
     border-color: var(--text-secondary);
     color: var(--text-primary);
 }
+/* 统一卡片头部内次要按钮的风格为描边按钮 */
+.card-header .btn-secondary {
+  background-color: var(--color-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--color-border);
+}
+.card-header .btn-secondary:hover {
+  background-color: var(--color-background);
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}

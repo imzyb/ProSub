@@ -137,33 +137,34 @@ function closeDetailModal() { showDetailModal.value = false; }
 .view-container { max-width: 1400px; margin: 0 auto; }
 .card { margin-bottom: 2rem; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
+.header-actions { display: flex; gap: 0.75rem; /* 微调按钮间距 */ flex-shrink: 0; }
 .card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.9rem; }
 .loading-state, .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); margin-top: 1rem;}
 .empty-state h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;}
+.mt-4 { margin-top: 1rem; }
 
 .node-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1rem;
+  gap: 1.25rem; /* 微调卡片间距 */
   margin-top: 1.5rem;
 }
 .node-card {
-  background-color: var(--color-background);
+  background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
   padding: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.2s;
+  transition: all 0.2s ease-in-out;
+  box-shadow: var(--shadow-sm);
 }
 .node-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-
 .node-card-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem; /* 【微调】维持现有合适的间距 */
+  gap: 0.75rem; /* 【修正】确保徽章和名称有足够间距 */
   overflow: hidden;
 }
 .node-name {
@@ -172,19 +173,8 @@ function closeDetailModal() { showDetailModal.value = false; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.node-card-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-.protocol-badge {
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  flex-shrink: 0;
-  color: white;
-}
+.node-card-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.protocol-badge { font-size: 0.75rem; font-weight: bold; padding: 0.2rem 0.6rem; border-radius: 9999px; flex-shrink: 0; color: white; }
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
@@ -193,8 +183,5 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
 
-.node-card-actions .btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
-}
+.node-card-actions .btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
 </style>

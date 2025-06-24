@@ -93,9 +93,9 @@ function copyLink(link) {
         <button @click="openAddModal" class="btn btn-primary">新增配置</button>
       </div>
       <p class="card-description">在这里组合您的节点，生成可在客户端中使用的最终订阅链接。</p>
-
+      
       <div v-if="store.isInitialLoading" class="loading-state">正在加载配置...</div>
-
+      
       <ul v-else-if="store.profiles.length > 0" class="profile-list">
         <li v-for="profile in store.profiles" :key="profile.id" class="profile-item card">
           <div class="profile-info">
@@ -117,8 +117,12 @@ function copyLink(link) {
       </ul>
 
       <div v-else class="empty-state">
-        </div>
+        <h3>暂无输出配置</h3>
+        <p>请点击右上角“新增配置”来创建您的第一个作品。</p>
+        <button @click="openAddModal" class="btn btn-primary" style="margin-top: 1rem;">新增配置</button>
+      </div>
     </div>
+
     <ProfileEditorModal
       :show="showEditorModal"
       :profile="profileToEdit"
@@ -133,69 +137,19 @@ function copyLink(link) {
 <style scoped>
 .view-container { max-width: 1024px; margin: 0 auto; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
-.card-description {
-  border-top: 1px solid var(--color-border);
-  padding-top: 1.5rem;
-  margin-top: 1rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
+.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
 .loading-state, .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); margin-top: 1rem; }
-.profile-list {
-  list-style: none;
-  padding: 0;
-  margin-top: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-/* 【核心修改】使用Grid布局重新定义列表项 */
+.empty-state h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem; }
+.profile-list { list-style: none; padding: 0; margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 .profile-item {
   padding: 1.5rem;
-  display: grid;
-  /* 定义网格区域和列 */
-  grid-template-areas:
-    "info   actions"
-    "link   actions";
-  grid-template-columns: 1fr auto;
-  gap: 1rem 1.5rem;
-  align-items: center;
+  display: flex;
+  flex-direction: column; /* 强制垂直堆叠 */
+  gap: 1rem;
 }
-
-.profile-info { grid-area: info; display: flex; align-items: center; gap: 1rem; }
+.profile-info { display: flex; align-items: center; gap: 1rem; }
 .profile-name { font-size: 1.2rem; font-weight: 600; }
 .profile-format { font-size: 0.85rem; color: var(--text-secondary); background-color: var(--color-background); padding: 0.2rem 0.5rem; border-radius: 4px;}
-.profile-link { grid-area: link; }
-.link-input {
-  width: 100%;
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  padding: 0.75rem;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-}
-.profile-actions {
-  grid-area: actions;
-  display: flex;
-  flex-direction: column; /* 让按钮垂直排列 */
-  gap: 0.75rem;
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .profile-item {
-    /* 在手机上，让按钮区域移动到下方 */
-    grid-template-areas:
-      "info"
-      "link"
-      "actions";
-    grid-template-columns: 1fr;
-  }
-  .profile-actions {
-    flex-direction: row; /* 按钮变为水平排列 */
-    justify-content: flex-end; /* 靠右对齐 */
-  }
-}
+.link-input { width: 100%; background-color: var(--color-background); border: 1px solid var(--color-border); border-radius: 0.375rem; padding: 0.75rem; font-family: var(--font-mono); font-size: 0.85rem; }
+.profile-actions { display: flex; gap: 0.75rem; align-self: flex-end; /* 让按钮组靠右 */ }
 </style>
