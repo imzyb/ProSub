@@ -15,7 +15,7 @@ async function checkSession() {
   }
 }
 function handleLoginSuccess() {
-  sessionState.value = 'loggedIn';
+  window.location.reload();
 }
 onMounted(checkSession);
 </script>
