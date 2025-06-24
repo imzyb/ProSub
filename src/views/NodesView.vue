@@ -249,4 +249,22 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
+
+@media (max-width: 768px) {
+  .node-grid {
+    /* 在小屏幕上，强制变为单列布局，使其像列表 */
+    grid-template-columns: 1fr;
+  }
+  .node-card {
+    flex-direction: column; /* 【核心修正】将卡片内部变为垂直堆叠 */
+    align-items: stretch;   /* 让内部元素宽度撑满 */
+    gap: 1rem;            /* 增加信息和按钮之间的垂直间距 */
+  }
+  .node-card-info {
+    padding-right: 0; /* 移除右侧内边距 */
+  }
+  .node-card-actions {
+    justify-content: flex-end; /* 让按钮组在自己的行内靠右对齐 */
+  }
+}
 </style>
