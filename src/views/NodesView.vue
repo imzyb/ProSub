@@ -135,23 +135,13 @@ function closeDetailModal() { showDetailModal.value = false; }
 
 <style scoped>
 .view-container { max-width: 1400px; margin: 0 auto; }
+.card { margin-bottom: 2rem; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.card-description {
-  border-top: 1px solid var(--color-border);
-  padding-top: 1.5rem;
-  margin-top: 1rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-.loading-state, .empty-state {
-  text-align: center;
-  padding: 3rem;
-  margin-top: 1rem;
-  color: var(--text-secondary);
-  border: 2px dashed var(--color-border);
-  border-radius: var(--border-radius);
-}
+.header-actions { display: flex; gap: 1rem; flex-shrink: 0; }
+.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.9rem; }
+.loading-state, .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); margin-top: 1rem;}
 .empty-state h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;}
+
 .node-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -168,15 +158,12 @@ function closeDetailModal() { showDetailModal.value = false; }
   align-items: center;
   transition: all 0.2s;
 }
-.node-card:hover {
-  border-color: var(--primary);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
+.node-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
 .node-card-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.75rem; /* 【微调】维持现有合适的间距 */
   overflow: hidden;
 }
 .node-name {
@@ -206,6 +193,8 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
 
-/* 按钮尺寸统一 */
-.node-card-actions .btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+.node-card-actions .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
 </style>
