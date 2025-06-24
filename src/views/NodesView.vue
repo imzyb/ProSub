@@ -24,14 +24,9 @@ function getProtocolInfo(nodeUrl) {
     return { text: protocol, style: styleMap[protocol] || 'protocol-unknown' };
 }
 
-function openAddModal() {
-  nodeToEdit.value = null;
-  showEditorModal.value = true;
-}
-
-function openEditModal(node) {
-  nodeToEdit.value = { ...node };
-  showEditorModal.value = true;
+function getNodeAddress(nodeUrl) {
+    const parsed = parseNodeUrl(nodeUrl);
+    return parsed ? (parsed.address || parsed.hostname || '') : 'N/A';
 }
 
 async function handleSaveNode(nodeData) {
@@ -99,6 +94,9 @@ async function deleteNode(id) {
     store.isActionLoading = false;
   }
 }
+
+function openAddModal() { nodeToEdit.value = null; showEditorModal.value = true; }
+function openEditModal(node) { nodeToEdit.value = { ...node }; showEditorModal.value = true; }
 </script>
 
 <template>
@@ -111,36 +109,38 @@ async function deleteNode(id) {
       </div>
     </header>
     
-    <div class="card content-card">
+    <div class="content-card">
       <div v-if="store.isInitialLoading" class="loading-state">正在加载...</div>
-      <table v-else-if="store.nodes.length > 0" class="node-table">
-        <thead>
-          <tr>
-            <th>类型</th>
-            <th>名称</th>
-            <th>地址</th>
-            <th class="actions-header">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="node in store.nodes" :key="node.id">
-            <td>
-              <span class="protocol-badge" :class="getProtocolInfo(node.url).style">
-                {{ getProtocolInfo(node.url).text }}
-              </span>
-            </td>
-            <td class="node-name" :title="node.name">{{ node.name }}</td>
-            <td class="node-url" :title="node.url">{{ node.url }}</td>
-            <td class="actions-cell">
-              <button @click="openEditModal(node)" class="btn-icon" title="编辑">✏️</button>
-              <button @click="deleteNode(node.id)" class="btn-icon btn-danger" :disabled="deletingNodeId === node.id" title="删除">
-                <Spinner v-if="deletingNodeId === node.id" />
-                <span v-else>🗑️</span>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else-if="store.nodes.length > 0" class="table-container">
+        <table class="node-table">
+          <thead>
+            <tr>
+              <th class="col-type">类型</th>
+              <th class="col-name">名称</th>
+              <th class="col-address">地址</th>
+              <th class="col-actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="node in store.nodes" :key="node.id">
+              <td>
+                <span class="protocol-badge" :class="getProtocolInfo(node.url).style">
+                  {{ getProtocolInfo(node.url).text }}
+                </span>
+              </td>
+              <td class="node-name" :title="node.name">{{ node.name }}</td>
+              <td class="node-address" :title="getNodeAddress(node.url)">{{ getNodeAddress(node.url) }}</td>
+              <td class="actions-cell">
+                <button @click="openEditModal(node)" class="btn-icon" title="编辑">✏️</button>
+                <button @click="deleteNode(node.id)" class="btn-icon btn-danger" :disabled="deletingNodeId === node.id" title="删除">
+                  <Spinner v-if="deletingNodeId === node.id" />
+                  <span v-else>🗑️</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div v-else class="empty-state">
         <h3>暂无节点</h3>
         <p>点击右上角“新增节点”或“批量导入”来开始。</p>
@@ -153,74 +153,32 @@ async function deleteNode(id) {
 </template>
 
 <style scoped>
-.view-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.view-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  flex-shrink: 0;
-}
-.view-header h1 {
-  font-size: 1.75rem;
-  font-weight: 600;
-}
-.header-actions {
-  display: flex;
-  gap: 1rem;
-}
-.content-card {
-  flex-grow: 1;
-  overflow-x: auto;
-}
+.view-container { display: flex; flex-direction: column; height: 100%; }
+.view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-shrink: 0; }
+.view-header h1 { font-size: 1.75rem; font-weight: 600; }
+.header-actions { display: flex; gap: 1rem; }
+.content-card { flex-grow: 1; overflow-y: auto; padding: 0; }
 .loading-state, .empty-state { text-align: center; padding: 4rem; color: var(--text-secondary); }
-.node-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+.table-container { overflow-x: auto; }
+.node-table { width: 100%; border-collapse: collapse; }
 .node-table th, .node-table td {
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.5rem;
   text-align: left;
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
 }
-.node-table th {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-}
-.node-table tbody tr:hover {
-  background-color: var(--color-background);
-}
-.node-name, .node-url {
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.actions-header { text-align: right; }
-.actions-cell {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-.btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  font-size: 1.2rem;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
+.node-table th { font-weight: 600; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; background-color: var(--color-background); }
+.node-table tbody tr:hover { background-color: var(--color-background); }
+.col-type { width: 120px; }
+.col-name { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+.col-address { max-width: 400px; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
+.col-actions { width: 100px; text-align: right; }
+.actions-cell { display: flex; justify-content: flex-end; gap: 1rem; }
+.btn-icon { background: none; border: none; cursor: pointer; padding: 0.25rem; font-size: 1.1rem; opacity: 0.6; transition: opacity 0.2s; }
 .btn-icon:hover { opacity: 1; }
 .btn-icon.btn-danger:hover { color: var(--danger); }
 
-.protocol-badge { font-size: 0.8rem; font-weight: bold; padding: 0.25rem 0.75rem; border-radius: 9999px; color: white; }
+.protocol-badge { font-size: 0.8rem; font-weight: 500; padding: 0.25rem 0.75rem; border-radius: 9999px; color: white; }
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
