@@ -1,6 +1,6 @@
 <script setup>
 // Script部分与我们最终的稳定版本完全相同，无需改动
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useToast } from 'vue-toastification';
 import { store } from '../store.js';
 import { parseNodeUrl } from '../utils.js';
@@ -110,15 +110,15 @@ function closeDetailModal() { showDetailModal.value = false; }
       
       <div v-if="store.isInitialLoading" class="loading-state">正在加载节点...</div>
       
-      <ul v-else-if="store.nodes.length > 0" class="node-list">
-        <li v-for="item in store.nodes" :key="item.id" class="node-item">
-          <div class="item-info">
+      <div v-else-if="store.nodes.length > 0" class="node-grid">
+        <div v-for="item in store.nodes" :key="item.id" class="node-card">
+          <div class="node-card-info">
             <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
               {{ getProtocolInfo(item.url).text }}
             </span>
-            <strong :title="item.name">{{ item.name }}</strong>
+            <strong class="node-name" :title="item.name">{{ item.name }}</strong>
           </div>
-          <div class="item-actions">
+          <div class="node-card-actions">
             <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
             <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
             <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
@@ -126,8 +126,8 @@ function closeDetailModal() { showDetailModal.value = false; }
               <span v-else>删除</span>
             </button>
           </div>
-        </li>
-      </ul>
+        </div>
+      </div>
       
       <div v-else class="empty-state">
         <h3>空空如也</h3>
@@ -143,95 +143,39 @@ function closeDetailModal() { showDetailModal.value = false; }
 </template>
 
 <style scoped>
-.view-container {
-  max-width: 1024px;
-  margin: 0 auto;
+.view-container { max-width: 1400px; margin: 0 auto; }
+.card { margin-bottom: 2rem; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.header-actions { display: flex; gap: 0.75rem; }
+.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1.5rem; }
+.loading-state, .empty-state { text-align: center; padding: 3rem; margin-top: 1rem; border: 2px dashed var(--color-border); }
+.empty-state h3 { margin-bottom: 0.5rem; }
+
+/* 【核心修改】网格布局样式 */
+.node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
-.card {
-  margin-bottom: 2rem;
-}
-.card-header {
+.node-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.header-actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-.card-description {
-  border-top: 1px solid var(--color-border);
-  padding-top: 1.5rem;
-  margin-top: 1rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-.loading-state, .empty-state {
-  text-align: center;
-  padding: 3rem;
-  margin-top: 1rem;
-  color: var(--text-secondary);
-  border: 2px dashed var(--color-border);
-  border-radius: var(--border-radius);
-}
-.empty-state h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-/* 【核心修改】恢复为单列列表，并让每一项都是上下布局 */
-.node-list {
-  list-style: none;
-  padding: 0;
-  margin-top: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.node-item {
-  display: flex;
-  flex-direction: column; /* 强制垂直堆叠 */
-  align-items: stretch; /* 拉伸对齐 */
-  gap: 1rem; /* 增加项目间距 */
-  padding: 1.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius);
-  background-color: var(--color-surface);
+  transition: all 0.2s;
   box-shadow: var(--shadow-sm);
 }
-.item-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  overflow: hidden;
-}
-.item-info strong {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.item-actions {
-  display: flex;
-  gap: 0.75rem;
-  align-self: flex-end; /* 让按钮组在自己的行内靠右对齐 */
-}
-.protocol-badge {
-  min-width: 65px;
-  text-align: center;
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 0.25rem 0.6rem;
-  border-radius: 9999px;
-  color: white;
-  flex-shrink: 0;
-}
+.node-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.node-card-info { display: flex; align-items: center; gap: 0.75rem; overflow: hidden; }
+.node-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node-card-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.node-card-actions .btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+.protocol-badge { min-width: 60px; text-align: center; font-size: 0.75rem; font-weight: bold; padding: 0.25rem 0.6rem; border-radius: 9999px; color: white; }
+/* ...徽章颜色样式... */
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
@@ -239,4 +183,11 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
+
+/* 【核心修改】响应式样式 - 在小屏幕上变回单列 */
+@media (max-width: 768px) {
+  .node-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
