@@ -114,13 +114,15 @@ function closeDetailModal() { showDetailModal.value = false; }
       <div v-if="store.isLoading" class="loading-text">正在加载节点...</div>
       <div v-else-if="store.nodes.length > 0" class="node-grid">
         <div v-for="item in store.nodes" :key="item.id" class="node-card">
-          <div class="node-card-header">
-            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">{{ getProtocolInfo(item.url).text }}</span>
+          <div class="node-card-info">
+            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
+              {{ getProtocolInfo(item.url).text }}
+            </span>
             <strong class="node-name" :title="item.name">{{ item.name }}</strong>
           </div>
           <div class="node-card-actions">
             <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
-            <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
+            <button @click="showNodeDetails(item)" class="btn btn-outline-secondary">详情</button>
             <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
               <Spinner v-if="deletingNodeId === item.id" />
               <span v-else>删除</span>
@@ -137,53 +139,74 @@ function closeDetailModal() { showDetailModal.value = false; }
 .view-container { max-width: 1400px; margin: 0 auto; }
 .card { margin-bottom: 2rem; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.header-actions { display: flex; gap: 0.75rem; /* 微调按钮间距 */ flex-shrink: 0; }
-.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.9rem; }
-.loading-state, .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); margin-top: 1rem;}
+.header-actions { display: flex; gap: 0.75rem; flex-shrink: 0; }
+.card-description { border-top: 1px solid var(--color-border); padding-top: 1.5rem; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
+.loading-state, .empty-state { text-align: center; padding: 3rem; margin-top: 1rem; color: var(--text-secondary); border: 2px dashed var(--color-border); border-radius: var(--border-radius); }
 .empty-state h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;}
-.mt-4 { margin-top: 1rem; }
 
 .node-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 1.25rem; /* 微调卡片间距 */
+  gap: 1.25rem;
   margin-top: 1.5rem;
 }
+
 .node-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
-  padding: 1rem;
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s;
   box-shadow: var(--shadow-sm);
 }
-.node-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.node-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
 .node-card-info {
   display: flex;
   align-items: center;
-  gap: 1rem; /* 【修改】增大徽章和名称的间距 */
-  overflow: hidden;
+  gap: 0.75rem; /* 【修正】徽章和名称的间距 */
+  overflow: hidden; /* 防止长名称溢出 */
 }
+
+.protocol-badge {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.25rem 0; /* 调整内边距 */
+  border-radius: 9999px;
+  color: white;
+  flex-shrink: 0;
+  min-width: 60px; /* 【核心修正】设定一个最小宽度，让所有徽章对齐 */
+  text-align: center; /* 【核心修正】让文字在徽章内居中 */
+}
+
 .node-name {
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-primary);
 }
-.node-card-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-.protocol-badge {
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 0.2rem 0; /* 调整内边距 */
-  border-radius: 9999px;
+
+.node-card-actions {
+  display: flex;
+  gap: 0.5rem;
   flex-shrink: 0;
-  color: white;
-  min-width: 60px; /* 【新增】设定一个最小宽度，让所有徽章对齐 */
-  text-align: center; /* 【新增】让文字在徽章内居中 */
 }
+
+/* 统一卡片内按钮尺寸和风格 */
+.node-card-actions .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+/* 徽章颜色 */
 .protocol-vmess { background-color: #10b981; }
 .protocol-vless { background-color: #3b82f6; }
 .protocol-trojan { background-color: #ef4444; }
@@ -191,6 +214,4 @@ function closeDetailModal() { showDetailModal.value = false; }
 .protocol-hysteria2 { background-color: #8b5cf6; }
 .protocol-sub { background-color: #64748b; }
 .protocol-unknown { background-color: #9ca3af; }
-
-.node-card-actions .btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
 </style>
