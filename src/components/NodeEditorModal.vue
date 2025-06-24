@@ -20,6 +20,7 @@ watch(() => props.show, (newVal) => {
     formData.value = isEditing.value ? { ...props.node } : getInitialState();
   }
 });
+
 watch(() => formData.value.url, (newUrl) => {
   if (newUrl && !formData.value.name) {
     const parsed = parseNodeUrl(newUrl);
@@ -28,6 +29,7 @@ watch(() => formData.value.url, (newUrl) => {
     }
   }
 });
+
 function handleSubmit() {
   if (!formData.value.url.trim()) {
     toast.warning('URL 不能为空');
@@ -62,10 +64,26 @@ function handleSubmit() {
     </div>
   </div>
 </template>
+
 <style scoped>
-.modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
-.modal-content { width: 100%; max-width: 500px; padding: 1.5rem 2rem 2rem 2rem; margin: 0; }
-.modal-title { padding-bottom: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
-.modal-form { display: flex; flex-direction: column; gap: 1.5rem; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
+.modal-backdrop {
+  position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem;
+}
+.modal-content {
+  width: 100%; max-width: 500px; padding: 1.5rem 2rem 2rem; margin: 0;
+}
+.modal-title {
+  padding-bottom: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border);
+}
+.modal-form {
+  display: flex; flex-direction: column; gap: 1.5rem;
+}
+.form-group label {
+  display: block; margin-bottom: 0.5rem; font-weight: 500;
+}
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 0.75rem;
+  margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border);
+}
 </style>
