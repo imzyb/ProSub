@@ -115,14 +115,14 @@ function closeDetailModal() { showDetailModal.value = false; }
       <div v-else-if="store.nodes.length > 0" class="node-grid">
         <div v-for="item in store.nodes" :key="item.id" class="node-card">
           <div class="node-card-info">
-            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">
-              {{ getProtocolInfo(item.url).text }}
-            </span>
+            <span class="protocol-badge" :class="getProtocolInfo(item.url).style">{{ getProtocolInfo(item.url).text }}</span>
             <strong class="node-name" :title="item.name">{{ item.name }}</strong>
           </div>
           <div class="node-card-actions">
             <button @click="openEditModal(item)" class="btn btn-warning">编辑</button>
-            <button @click="showNodeDetails(item)" class="btn btn-outline-secondary">详情</button>
+      
+            <button @click="showNodeDetails(item)" class="btn btn-secondary">详情</button>
+      
             <button @click="deleteNode(item.id)" class="btn btn-danger" :disabled="deletingNodeId === item.id">
               <Spinner v-if="deletingNodeId === item.id" />
               <span v-else>删除</span>
